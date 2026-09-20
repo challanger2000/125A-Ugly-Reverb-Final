@@ -1,0 +1,69 @@
+name: Package Gumroad Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Final
+        uses: actions/checkout@v4
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 18 2026" -A x64
+
+      - name: Build plugin
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target UglyReverb --parallel
+
+      - name: Build PDF manuals
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check reportlab
+          python scripts/build_manuals.py
+          if (-not (Test-Path "docs/Ugly_Reverb_Handbuch_DE.pdf")) { throw "German PDF manual missing" }
+          if (-not (Test-Path "docs/Ugly_Reverb_Manual_EN.pdf")) { throw "English PDF manual missing" }
+
+      - name: Assemble Gumroad package
+        shell: pwsh
+        run: |
+          $source = Get-ChildItem -Path build -Recurse -Directory -Filter "UglyReverb.vst3" | Select-Object -First 1
+          if (-not $source) { throw "UglyReverb.vst3 bundle not found" }
+
+          $root = "release/125A_Ugly_Reverb_v0.1.0_Windows_x64"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+
+          $plugin = Join-Path $root "125A Ugly Reverb.vst3"
+          Copy-Item -Path $source.FullName -Destination $plugin -Recurse -Force
+
+          $archDir = Join-Path $plugin "Contents\x86_64-win"
+          $oldBinary = Join-Path $archDir "UglyReverb.vst3"
+          $newBinary = Join-Path $archDir "125A Ugly Reverb.vst3"
+          if (-not (Test-Path $oldBinary)) { throw "Inner UglyReverb.vst3 binary not found" }
+          Rename-Item -Path $oldBinary -NewName "125A Ugly Reverb.vst3"
+          if (-not (Test-Path $newBinary)) { throw "Canonical inner binary missing" }
+
+          Copy-Item README.md, LICENSE.txt, INSTALL_DE.txt, INSTALL_EN.txt -Destination $root
+          Copy-Item docs/Ugly_Reverb_Handbuch_DE.pdf, docs/Ugly_Reverb_Manual_EN.pdf -Destination $root
+
+          Get-ChildItem $root -Recurse -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            $rel = $_.FullName.Substring((Resolve-Path $root).Path.Length + 1).Replace('\','/')
+            "$hash  $rel"
+          } | Set-Content -Encoding ascii "$root/SHA256SUMS.txt"
+
+          Compress-Archive -Path $root -DestinationPath release/125A_Ugly_Reverb_v0.1.0_Windows_x64_Gumroad.zip -CompressionLevel Optimal
+
+      - name: Upload Gumroad package
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A_Ugly_Reverb_v0.1.0_Windows_x64_Gumroad
+          path: release/125A_Ugly_Reverb_v0.1.0_Windows_x64_Gumroad.zip
+          if-no-files-found: error
+          retention-days: 7
