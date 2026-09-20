@@ -1,0 +1,17 @@
+#pragma once
+
+#include <cstddef>
+
+namespace UglyReverb::Branding {
+
+struct MasterPathSource {
+    const char* d;
+    bool red;
+};
+
+inline constexpr MasterPathSource kMasterPaths[] = {
+@UGLY_BRANDING_PATHS@};
+
+inline constexpr std::size_t kMasterPathCount = @UGLY_BRANDING_PATH_COUNT@;
+
+} // namespace UglyReverb::Branding

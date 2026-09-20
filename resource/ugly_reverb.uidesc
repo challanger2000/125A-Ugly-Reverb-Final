@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vstgui-ui-description version="1">
+  <colors>
+    <color name="Background" rgba="#05070aff"/>
+    <color name="Text" rgba="#e7edf3ff"/>
+    <color name="Muted" rgba="#91a0adff"/>
+    <color name="PanelTitle" rgba="#b8d4eaff"/>
+    <color name="Display" rgba="#07111aff"/>
+    <color name="DisplayText" rgba="#dce9f3ff"/>
+    <color name="Edge" rgba="#31506aff"/>
+  </colors>
+
+  <template background-color="Background" class="CViewContainer" maxSize="760, 430" minSize="760, 430" mouse-enabled="true" name="view" opacity="1" origin="0, 0" size="760, 430" transparent="false">
+    <view class="CView" custom-view-name="Faceplate" origin="0, 0" size="760, 430" mouse-enabled="false"/>
+    <view class="CView" custom-view-name="WearOverlay" origin="0, 0" size="760, 430" mouse-enabled="false" transparent="true"/>
+    <view class="CView" custom-view-name="BrandLogo" origin="20, 9" size="86, 43" mouse-enabled="false"/>
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontBig" font-color="Text" frame-width="0" origin="250, 9" size="260, 28" title="UGLY REVERB" transparent="true" text-alignment="center"/>
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Muted" frame-width="0" origin="220, 36" size="320, 16" title="CHARACTER REVERB / CONTROLLED WRONGNESS" transparent="true" text-alignment="center"/>
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Muted" frame-width="0" origin="644, 16" size="38, 18" title="GUI" transparent="true" text-alignment="right"/>
+    <view class="CView" custom-view-name="GuiZoom" origin="690, 12" size="52, 26"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="PanelTitle" frame-width="0" origin="30, 80" size="220, 18" title="SPACE / MATERIAL" transparent="true" text-alignment="left"/>
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="PanelTitle" frame-width="0" origin="302, 80" size="290, 18" title="UGLY NETWORK" transparent="true" text-alignment="left"/>
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="PanelTitle" frame-width="0" origin="642, 80" size="88, 18" title="MASTER" transparent="true" text-alignment="center"/>
+
+    <!-- SPACE / MATERIAL -->
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="38, 105" size="86, 17" title="Material" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Material" origin="48, 122" size="66, 66"/>
+    <view back-color="Display" class="CParamDisplay" control-tag="Material" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="31, 190" round-rect-radius="4" size="100, 20" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="170, 105" size="86, 17" title="Size" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Size" origin="180, 122" size="66, 66"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Size" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="183, 190" round-rect-radius="4" size="60, 20" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="38, 245" size="86, 17" title="Decay" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Decay" origin="48, 262" size="66, 66"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Decay" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="51, 330" round-rect-radius="4" size="60, 20" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="170, 245" size="86, 17" title="Pre-Delay" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="PreDelay" origin="180, 262" size="66, 66"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Pre-Delay" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="174, 330" round-rect-radius="4" size="78, 20" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <!-- UGLY NETWORK TOP -->
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="290, 105" size="74, 17" title="Diffusion" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Diffusion" origin="296, 124" size="62, 62"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Diffusion" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="297, 188" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="367, 105" size="74, 17" title="Damping" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Damping" origin="373, 124" size="62, 62"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Damping" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="374, 188" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="444, 105" size="74, 17" title="Body" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Body" origin="450, 124" size="62, 62"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Body" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="451, 188" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="521, 105" size="74, 17" title="Width" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Width" origin="527, 124" size="62, 62"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Width" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="528, 188" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <!-- UGLY NETWORK BOTTOM -->
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="303, 245" size="74, 17" title="Metal" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Metal" origin="309, 264" size="62, 62"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Metal" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="310, 328" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="404, 245" size="74, 17" title="Clang" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Clang" origin="410, 264" size="62, 62"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Clang" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="411, 328" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="505, 245" size="74, 17" title="Rattle" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Rattle" origin="511, 264" size="62, 62"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Rattle" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="512, 328" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="367, 354" size="172, 16" title="Digital Color" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Digital" origin="360, 375" size="186, 28"/>
+
+    <!-- MASTER -->
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="647, 105" size="78, 17" title="Mix" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Mix" origin="654, 122" size="64, 64"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Mix" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="656, 188" round-rect-radius="4" size="60, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="647, 221" size="78, 17" title="Output" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Output" origin="654, 238" size="64, 64"/>
+    <view back-color="Display" class="CTextEdit" control-tag="Output" font="~ NormalFontSmall" font-color="DisplayText" frame-color="Edge" frame-width="1" origin="652, 304" round-rect-radius="4" size="68, 19" style-round-rect="true" transparent="false" text-alignment="center"/>
+
+    <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="647, 340" size="78, 17" title="Bypass" transparent="true" text-alignment="center"/>
+    <view class="CView" custom-view-name="Bypass" origin="647, 365" size="78, 30"/>
+    <view class="CView" custom-view-name="GlassOverlay" origin="0, 0" size="760, 430" mouse-enabled="false" transparent="true"/>
+  </template>
+
+  <control-tags>
+    <control-tag name="Material" tag="100"/>
+    <control-tag name="Size" tag="101"/>
+    <control-tag name="Decay" tag="102"/>
+    <control-tag name="Pre-Delay" tag="103"/>
+    <control-tag name="Diffusion" tag="104"/>
+    <control-tag name="Damping" tag="105"/>
+    <control-tag name="Metal" tag="106"/>
+    <control-tag name="Clang" tag="107"/>
+    <control-tag name="Rattle" tag="108"/>
+    <control-tag name="Body" tag="109"/>
+    <control-tag name="Width" tag="110"/>
+    <control-tag name="Mix" tag="111"/>
+    <control-tag name="Output" tag="112"/>
+    <control-tag name="Digital Color" tag="113"/>
+    <control-tag name="Bypass" tag="114"/>
+  </control-tags>
+</vstgui-ui-description>

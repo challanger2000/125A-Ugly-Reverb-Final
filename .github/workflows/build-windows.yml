@@ -1,0 +1,86 @@
+name: Build Windows VST3
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake --version
+          cmake -S . -B build -G "Visual Studio 18 2026" -A x64
+
+      - name: Build Release + Tests + Validator
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target UglyReverb UglyReverbMeasurements UglyReverbReloadProbe validator --parallel
+
+      - name: DSP Measurements
+        shell: pwsh
+        run: |
+          ctest --test-dir build -C Release --output-on-failure
+
+      - name: Create canonical release package
+        shell: pwsh
+        run: |
+          $source = Get-ChildItem -Path build -Recurse -Directory -Filter "UglyReverb.vst3" | Select-Object -First 1
+          if (-not $source) { Write-Error "UglyReverb.vst3 not found"; exit 1 }
+
+          New-Item -ItemType Directory -Force -Path packaged | Out-Null
+          $dest = Join-Path (Resolve-Path packaged) "125A Ugly Reverb.vst3"
+          Copy-Item -Path $source.FullName -Destination $dest -Recurse -Force
+
+          $archDir = Join-Path $dest "Contents\x86_64-win"
+          $oldBinary = Join-Path $archDir "UglyReverb.vst3"
+          $newBinary = Join-Path $archDir "125A Ugly Reverb.vst3"
+
+          if (-not (Test-Path $oldBinary)) {
+            Write-Error "Inner UglyReverb.vst3 binary not found"
+            exit 1
+          }
+
+          Rename-Item -Path $oldBinary -NewName "125A Ugly Reverb.vst3"
+
+          if (-not (Test-Path $newBinary)) {
+            Write-Error "Canonical inner VST3 binary was not created"
+            exit 1
+          }
+
+          Write-Host "Canonical package: $dest"
+          Write-Host "Canonical binary:  $newBinary"
+
+      - name: Steinberg Validator on canonical package
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path packaged -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $validator = Get-ChildItem -Path build -Recurse -File -Filter "validator.exe" | Select-Object -First 1
+          if (-not $plugin) { Write-Error "Canonical 125A Ugly Reverb.vst3 not found"; exit 1 }
+          if (-not $validator) { Write-Error "validator.exe not found"; exit 1 }
+          & $validator.FullName $plugin.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Reload lifecycle diagnostic on canonical package
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path packaged -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $probe = Get-ChildItem -Path build -Recurse -File -Filter "UglyReverbReloadProbe.exe" | Select-Object -First 1
+          if (-not $plugin) { Write-Error "Canonical 125A Ugly Reverb.vst3 not found"; exit 1 }
+          if (-not $probe) { Write-Error "UglyReverbReloadProbe.exe not found"; exit 1 }
+          & $probe.FullName $plugin.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A-Ugly-Reverb-Windows-x64
+          path: packaged/
+          if-no-files-found: error
+          retention-days: 7
