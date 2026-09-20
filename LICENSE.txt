@@ -1,0 +1,15 @@
+125A End User License Agreement
+
+Copyright (c) 2026 125A. All rights reserved.
+
+This license applies to the compiled 125A Ugly Reverb plug-in and its release package.
+
+You may install and use the compiled plug-in for personal and commercial music, audio, media and production work. Audio and other creative output produced while using the software may be used commercially without royalties to 125A.
+
+You may not resell, share, redistribute, repackage, mirror or otherwise make the plug-in binary or its release package available to third parties without prior written permission from 125A. This applies whether the software was acquired free of charge or for payment.
+
+You may not modify, reverse engineer or create derivative plug-in binaries except where such restrictions are prohibited by applicable law.
+
+If source code is published separately, its reuse rights are governed only by the license terms accompanying that source code. Availability of source code does not by itself grant redistribution or derivative-work rights.
+
+The software is provided as-is, without warranty of any kind. To the maximum extent permitted by law, 125A is not liable for damages arising from use of the software.
