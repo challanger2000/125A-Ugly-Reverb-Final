@@ -2,6 +2,9 @@ name: Package Gumroad Release
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [PACKAGE_TRIGGER.txt]
 
 jobs:
   package:
