@@ -1,0 +1,30 @@
+name: Export Factory Presets
+
+on:
+  push:
+    branches:
+      - macos/universal-vst3
+    paths:
+      - PRESET_EXPORT_TRIGGER.txt
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify preset count
+        run: |
+          set -euo pipefail
+          count="$(find "Factory Presets" -maxdepth 1 -type f -name '*.vstpreset' | wc -l)"
+          echo "Preset count: $count"
+          test "$count" -eq 16
+      - name: Upload presets
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ugly-Reverb-0.1.0-Factory-Presets
+          path: Factory Presets
+          if-no-files-found: error
