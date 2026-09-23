@@ -89,6 +89,16 @@ smtg_add_vst3plugin(UglyReverb
 target_link_libraries(UglyReverb PRIVATE sdk vstgui_support)
 target_include_directories(UglyReverb PRIVATE "${CMAKE_BINARY_DIR}")
 
+if(WIN32)
+  target_sources(UglyReverb PRIVATE
+    ${vst3sdk_SOURCE_DIR}/public.sdk/source/main/dllmain.cpp
+  )
+elseif(APPLE)
+  target_sources(UglyReverb PRIVATE
+    ${vst3sdk_SOURCE_DIR}/public.sdk/source/main/macmain.cpp
+  )
+endif()
+
 smtg_target_add_plugin_resources(UglyReverb
   RESOURCES
     resource/ugly_reverb.uidesc
@@ -121,6 +131,16 @@ if(WIN32)
   )
   target_link_libraries(UglyReverbReloadProbe PRIVATE sdk_hosting sdk_common base pluginterfaces)
   target_compile_definitions(UglyReverbReloadProbe PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
+elseif(APPLE)
+  add_executable(UglyReverbReloadProbe
+    tests/reload_lifecycle.cpp
+    ${vst3sdk_SOURCE_DIR}/public.sdk/source/vst/hosting/module_mac.mm
+  )
+  set_source_files_properties(
+    ${vst3sdk_SOURCE_DIR}/public.sdk/source/vst/hosting/module_mac.mm
+    PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+  find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+  target_link_libraries(UglyReverbReloadProbe PRIVATE sdk_hosting sdk_common base pluginterfaces "${COREFOUNDATION_FRAMEWORK}")
 endif()
 target_compile_definitions(UglyReverbMeasurements PRIVATE UGLY_REVERB_TESTING=1)
 target_include_directories(UglyReverbMeasurements PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/source)
