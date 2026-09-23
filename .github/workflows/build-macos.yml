@@ -1,0 +1,107 @@
+name: Build macOS Universal VST3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - macos/universal-vst3
+    paths:
+      - MACOS_BUILD_TRIGGER.txt
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show build environment
+        run: |
+          sw_vers
+          uname -m
+          cmake --version
+          xcodebuild -version
+
+      - name: Configure Universal Binary
+        run: |
+          cmake -S . -B build -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DSMTG_CREATE_PLUGIN_LINK=OFF \
+            -DSMTG_RUN_VST_VALIDATOR=ON
+
+      - name: Build plugin, tests, reload probe and validator
+        run: |
+          cmake --build build --config Release \
+            --target UglyReverb UglyReverbMeasurements UglyReverbReloadProbe validator \
+            --parallel
+
+      - name: Run DSP measurements
+        run: |
+          ctest --test-dir build -C Release --output-on-failure -V
+
+      - name: Run Steinberg Validator
+        run: |
+          set -euo pipefail
+          plugin="$(find build -type d -name 'UglyReverb.vst3' -print -quit)"
+          validator="$(find build -type f -name 'validator' -perm +111 -print -quit)"
+          test -n "$plugin"
+          test -n "$validator"
+          "$validator" "$plugin"
+
+      - name: Run reload lifecycle probe
+        run: |
+          set -euo pipefail
+          plugin="$(find build -type d -name 'UglyReverb.vst3' -print -quit)"
+          probe="$(find build -type f -name 'UglyReverbReloadProbe' -perm +111 -print -quit)"
+          test -n "$plugin"
+          test -n "$probe"
+          "$probe" "$plugin"
+
+      - name: Stage canonical Universal VST3 bundle
+        run: |
+          set -euo pipefail
+          plugin="$(find build -type d -name 'UglyReverb.vst3' -print -quit)"
+          test -n "$plugin"
+          mkdir -p artifact
+          cp -R "$plugin" "artifact/125A Ugly Reverb.vst3"
+
+          binary="artifact/125A Ugly Reverb.vst3/Contents/MacOS/UglyReverb"
+          test -f "$binary"
+
+          moduleinfo="artifact/125A Ugly Reverb.vst3/Contents/Resources/moduleinfo.json"
+          test -f "$moduleinfo"
+          grep -Eq '"Version"[[:space:]]*:[[:space:]]*"0\.1\.0"' "$moduleinfo"
+
+          file "$binary"
+          lipo -info "$binary"
+          lipo -archs "$binary" | grep -qw arm64
+          lipo -archs "$binary" | grep -qw x86_64
+
+      - name: Ad-hoc sign staged bundle
+        run: |
+          set -euo pipefail
+          plugin="artifact/125A Ugly Reverb.vst3"
+          codesign --force --deep --sign - "$plugin"
+          codesign --verify --deep --strict --verbose=2 "$plugin"
+
+      - name: Verify staged architectures
+        run: |
+          set -euo pipefail
+          binary="artifact/125A Ugly Reverb.vst3/Contents/MacOS/UglyReverb"
+          archs="$(lipo -archs "$binary")"
+          echo "Staged architectures: $archs"
+          echo "$archs" | grep -qw arm64
+          echo "$archs" | grep -qw x86_64
+
+      - name: Upload Universal VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A-Ugly-Reverb-v0.1.0-macOS-Universal-VST3
+          path: artifact
+          if-no-files-found: error
