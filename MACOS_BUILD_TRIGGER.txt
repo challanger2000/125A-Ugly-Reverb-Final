@@ -1,0 +1,5 @@
+125A Ugly Reverb v0.1.0 macOS Universal VST3 build trigger
+
+Confirmed source baseline: main @ e65a6b7a8e9b8e824d80d47fefe99d1a37b8fbd6
+Target branch: macos/universal-vst3
+Purpose: first arm64 + x86_64 verification build with DSP measurements, validator and reload probe
