@@ -28,6 +28,28 @@ inline float lerp(float a, float b, float t)
 {
     return a + (b - a) * t;
 }
+
+inline void hadamard8(const std::array<float, 8>& in, std::array<float, 8>& out)
+{
+    out = in;
+    for (int stride = 1; stride < 8; stride <<= 1)
+    {
+        for (int base = 0; base < 8; base += stride << 1)
+        {
+            for (int j = 0; j < stride; ++j)
+            {
+                const float a = out[(size_t)(base + j)];
+                const float b = out[(size_t)(base + j + stride)];
+                out[(size_t)(base + j)] = a + b;
+                out[(size_t)(base + j + stride)] = a - b;
+            }
+        }
+    }
+
+    constexpr float kNorm = 0.35355339059327376220f; // 1 / sqrt(8)
+    for (float& v : out)
+        v *= kNorm;
+}
 }
 
 void Processor::DelayLine::resize(int samples)
@@ -466,6 +488,15 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         const float rt60 = 0.45f * std::pow(28.f, smDecay_) * rt60Scale[mat];
         const float dampingCoef = 0.10f + (1.f - smDamping_) * 0.82f;
 
+        std::array<float, kCombs> filteredL {};
+        std::array<float, kCombs> filteredR {};
+        std::array<float, kCombs> delaySeconds {};
+        std::array<float, kCombs> feedbackGain {};
+
+        // Read all delay paths first.  V2 then scatters their feedback through a
+        // normalized Hadamard matrix before writing the next sample.  This turns
+        // the old bank of mostly independent resonators into a compact FDN-like
+        // network while preserving the deliberately exposed modal character.
         for (int i = 0; i < kCombs; ++i)
         {
             rattlePhase_[i] += (2.f * kPi * (0.13f + 0.037f * i)) / (float)sampleRate_;
@@ -475,50 +506,62 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
             ms *= sizeScale;
             ms *= (i & 1) ? (1.f / bodySkew) : bodySkew;
 
-            // Rattle deliberately affects only a few paths strongly, like loose hardware.
             const float rattleMask = (i == 1 || i == 4 || i == 6) ? 1.f : 0.25f;
             const float phase = rattlePhase_[i];
             const float rattleJitter = smRattle_ * rattleMask * 0.0035f * (float)sampleRate_
                                * (std::sin(phase) + 0.31f * std::sin(phase * 2.7f + i));
-            // Spring and Oil Can carry a small intrinsic mechanical motion even with
-            // Rattle at zero; Rattle remains the dominant user-controlled instability.
             const float materialMotion = intrinsicMotion[mat] * (float)sampleRate_
                                * (std::sin(phase * motionRate[mat] + 0.37f * i)
                                + 0.23f * std::sin(phase * motionRate[mat] * 2.31f + i));
             const float delayL = ms * 0.001f * (float)sampleRate_ + rattleJitter + materialMotion;
             const float delayR = delayL + (17.f + 3.f * (float)i);
 
-            float yL = combL_[i].read(delayL);
-            float yR = combR_[i].read(delayR);
+            const float yL = combL_[i].read(delayL);
+            const float yR = combR_[i].read(delayR);
 
             combL_[i].lp += dampingCoef * (yL - combL_[i].lp);
             combR_[i].lp += dampingCoef * (yR - combR_[i].lp);
-            const float fL = combL_[i].lp;
-            const float fR = combR_[i].lp;
+            filteredL[(size_t)i] = combL_[i].lp;
+            filteredR[(size_t)i] = combR_[i].lp;
 
-            const float delaySeconds = std::max(0.001f, ms * 0.001f);
-            float fb = std::pow(10.f, -3.f * delaySeconds / rt60);
-
-            // CLANG intentionally makes selected modes dominate instead of equalising them away.
+            delaySeconds[(size_t)i] = std::max(0.001f, ms * 0.001f);
+            float fb = std::pow(10.f, -3.f * delaySeconds[(size_t)i] / rt60);
             fb += smClang_ * clangShape[mat][i] * clangDepth[mat];
-            fb = std::max(0.20f, std::min(0.991f, fb));
+            feedbackGain[(size_t)i] = std::max(0.20f, std::min(0.991f, fb));
 
-            // Drive the excitation hard, but never multiply the feedback-loop slope.
-            // This keeps the tail mathematically decaying while still letting METAL/CLANG
-            // hit the network like an overloaded early-digital input stage.
+            const float weight = combWeight[mat][i];
+            combSumL += filteredL[(size_t)i] * weight;
+            combSumR += filteredR[(size_t)i] * weight;
+        }
+
+        std::array<float, kCombs> scatteredL {};
+        std::array<float, kCombs> scatteredR {};
+        hadamard8(filteredL, scatteredL);
+        hadamard8(filteredR, scatteredR);
+
+        // DIFFUSION now also controls feedback scattering.  Low values retain
+        // the coarse V1-style modal bank; higher values increase echo density
+        // without erasing the intentionally metallic identity.
+        const float scatterBlend = std::max(0.f, std::min(0.78f,
+            smDiffusion_ * (0.58f + 0.20f * (1.f - smMetal_))));
+
+        for (int i = 0; i < kCombs; ++i)
+        {
             const float drive = 1.f + smMetal_ * 2.2f + smClang_ * 1.6f;
             const float injectGain = 0.20f + 0.055f * i;
             const float drivenL = std::tanh(exciteL * injectGain * drive);
             const float drivenR = std::tanh(exciteR * injectGain * drive);
-            const float writeL = std::tanh(drivenL + fL * fb);
-            const float writeR = std::tanh(drivenR + fR * fb);
+
+            const float localL = filteredL[(size_t)i] * feedbackGain[(size_t)i];
+            const float localR = filteredR[(size_t)i] * feedbackGain[(size_t)i];
+            const float fdnL = scatteredL[(size_t)i] * feedbackGain[(size_t)i];
+            const float fdnR = scatteredR[(size_t)i] * feedbackGain[(size_t)i];
+
+            const float writeL = std::tanh(drivenL + lerp(localL, fdnL, scatterBlend));
+            const float writeR = std::tanh(drivenR + lerp(localR, fdnR, scatterBlend));
 
             combL_[i].push(processDigital(writeL));
             combR_[i].push(processDigital(writeR));
-
-            const float weight = combWeight[mat][i];
-            combSumL += fL * weight;
-            combSumR += fR * weight;
         }
 
         combSumL *= 0.17f;
