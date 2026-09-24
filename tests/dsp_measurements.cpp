@@ -58,6 +58,22 @@ double difference(const std::vector<float>& a, const std::vector<float>& b)
     return d / std::max<size_t>(1,n);
 }
 
+double hfProxy(const std::vector<float>& x, size_t start)
+{
+    start = std::min(start, x.size());
+    if (x.size() < 2 || start >= x.size() - 1) return 0.0;
+    double diffEnergy = 0.0;
+    double signalEnergy = 0.0;
+    for (size_t i = std::max<size_t>(start + 1, 1); i < x.size(); ++i)
+    {
+        const double v = x[i];
+        const double d = v - x[i - 1];
+        diffEnergy += d * d;
+        signalEnergy += v * v;
+    }
+    return signalEnergy > 1e-24 ? diffEnergy / signalEnergy : 0.0;
+}
+
 RenderResult render(double sr, double seconds, float material, float preDelay, float digital,
                     bool bypass=false, bool impulse=true, int block=128, float decay=0.58f,
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
@@ -349,6 +365,23 @@ int main()
                                     0.72f,0.62f,0.42f,0.52f,0.08f,0.85f,0.55f);
         require(difference(scatterBlock1.left,scatterBlock512.left) < 1e-7,
                 "V2 scattering render is block-size deterministic", failures);
+
+        // V2 frequency-shaped damping: the same tank should lose substantially
+        // more HF structure at maximum Damping without becoming numerically unstable.
+        auto openDamping=render(48000.0,2.5,0.5f,0.f,0.f,false,true,128,
+                                0.72f,0.74f,0.42f,0.0f,0.08f,0.72f,0.55f);
+        auto closedDamping=render(48000.0,2.5,0.5f,0.f,0.f,false,true,128,
+                                  0.72f,0.74f,0.42f,1.0f,0.08f,0.72f,0.55f);
+        const size_t dampingStart=(size_t)(48000.0*0.20);
+        const double openHF=hfProxy(openDamping.left,dampingStart);
+        const double closedHF=hfProxy(closedDamping.left,dampingStart);
+        std::cout << "[INFO] v2_damping_hf_open=" << openHF
+                  << " closed=" << closedHF
+                  << " ratio=" << (closedHF > 0.0 ? openHF/closedHF : 0.0) << "\n";
+        require(openHF > closedHF * 1.05,
+                "V2 Damping reduces normalized high-frequency tail structure", failures);
+        require(finiteBuffer(openDamping.left) && finiteBuffer(closedDamping.left),
+                "V2 frequency-shaped damping remains finite", failures);
 
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
