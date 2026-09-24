@@ -329,6 +329,27 @@ int main()
         require(clangWet > restrainedWet * 1.5, "Metal plus Clang increases character-tail energy", failures);
         require(rattleDelta > 1e-4, "Full Rattle substantially changes the resonant structure", failures);
 
+        // V2 feedback scattering: Diffusion now changes both the serial diffuser
+        // and the feedback topology.  Verify that the resulting tank response is
+        // materially different while remaining deterministic and bounded.
+        auto lowScatter=render(48000.0,2.5,0.5f,0.f,0.f,false,true,128,
+                               0.72f,0.62f,0.42f,0.52f,0.08f,0.0f,0.55f);
+        auto highScatter=render(48000.0,2.5,0.5f,0.f,0.f,false,true,128,
+                                0.72f,0.62f,0.42f,0.52f,0.08f,1.0f,0.55f);
+        const double scatterDelta=difference(lowScatter.left,highScatter.left);
+        std::cout << "[INFO] v2_scattering_delta=" << scatterDelta << "\n";
+        require(scatterDelta > 1e-4,
+                "V2 Diffusion/scattering materially changes the tank response", failures);
+        require(finiteBuffer(lowScatter.left) && finiteBuffer(highScatter.left),
+                "V2 feedback scattering remains finite", failures);
+
+        auto scatterBlock1=render(48000.0,1.5,0.5f,0.f,0.f,false,true,1,
+                                  0.72f,0.62f,0.42f,0.52f,0.08f,0.85f,0.55f);
+        auto scatterBlock512=render(48000.0,1.5,0.5f,0.f,0.f,false,true,512,
+                                    0.72f,0.62f,0.42f,0.52f,0.08f,0.85f,0.55f);
+        require(difference(scatterBlock1.left,scatterBlock512.left) < 1e-7,
+                "V2 scattering render is block-size deterministic", failures);
+
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
         auto mix0  = render(48000.0,2.0,0.f,0.f,0.f,false,true,128,0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,0.f);
