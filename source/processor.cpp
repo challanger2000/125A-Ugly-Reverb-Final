@@ -406,6 +406,12 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
     static constexpr float clangDepth[kMaterials]    = {0.050f,0.060f,0.052f,0.064f,0.070f,0.074f,0.078f,0.068f,0.066f,0.064f,0.066f};
     static constexpr float intrinsicMotion[kMaterials]= {0.f,0.f,0.f,0.00010f,0.00075f,0.f,0.00008f,0.00012f,0.00110f,0.00010f,0.f};
     static constexpr float motionRate[kMaterials]    = {1.f,1.f,1.f,1.7f,3.4f,1.f,1.3f,1.1f,0.55f,0.8f,1.f};
+    // Relative high-frequency survival inside the feedback network.
+    // Higher values retain a harder/brighter metallic tail; lower values make
+    // the material lose top end faster without changing the user-facing Decay.
+    static constexpr float hfMaterial[kMaterials] = {
+        0.72f,0.84f,0.62f,0.91f,0.88f,0.94f,0.96f,0.89f,0.82f,0.70f,0.64f
+    };
 
     for (int32 s = 0; s < data.numSamples; ++s)
     {
@@ -490,6 +496,8 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
 
         std::array<float, kCombs> filteredL {};
         std::array<float, kCombs> filteredR {};
+        std::array<float, kCombs> feedbackSourceL {};
+        std::array<float, kCombs> feedbackSourceR {};
         std::array<float, kCombs> delaySeconds {};
         std::array<float, kCombs> feedbackGain {};
 
@@ -524,6 +532,18 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
             filteredL[(size_t)i] = combL_[i].lp;
             filteredR[(size_t)i] = combR_[i].lp;
 
+            // Split the delay output into a slowly varying body component and
+            // a residual high-frequency component.  Damping now controls how
+            // much of that HF residual survives each trip through the tank.
+            // METAL deliberately restores some brightness at high settings.
+            const float hfRetention = std::max(0.02f, std::min(0.98f,
+                hfMaterial[mat] * (1.f - 0.88f * smDamping_)
+                + 0.16f * smMetal_ * (1.f - 0.55f * smDamping_)));
+            feedbackSourceL[(size_t)i] =
+                filteredL[(size_t)i] + (yL - filteredL[(size_t)i]) * hfRetention;
+            feedbackSourceR[(size_t)i] =
+                filteredR[(size_t)i] + (yR - filteredR[(size_t)i]) * hfRetention;
+
             delaySeconds[(size_t)i] = std::max(0.001f, ms * 0.001f);
             float fb = std::pow(10.f, -3.f * delaySeconds[(size_t)i] / rt60);
             fb += smClang_ * clangShape[mat][i] * clangDepth[mat];
@@ -536,8 +556,8 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
 
         std::array<float, kCombs> scatteredL {};
         std::array<float, kCombs> scatteredR {};
-        hadamard8(filteredL, scatteredL);
-        hadamard8(filteredR, scatteredR);
+        hadamard8(feedbackSourceL, scatteredL);
+        hadamard8(feedbackSourceR, scatteredR);
 
         // DIFFUSION now also controls feedback scattering.  Low values retain
         // the coarse V1-style modal bank; higher values increase echo density
@@ -552,8 +572,8 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
             const float drivenL = std::tanh(exciteL * injectGain * drive);
             const float drivenR = std::tanh(exciteR * injectGain * drive);
 
-            const float localL = filteredL[(size_t)i] * feedbackGain[(size_t)i];
-            const float localR = filteredR[(size_t)i] * feedbackGain[(size_t)i];
+            const float localL = feedbackSourceL[(size_t)i] * feedbackGain[(size_t)i];
+            const float localR = feedbackSourceR[(size_t)i] * feedbackGain[(size_t)i];
             const float fdnL = scatteredL[(size_t)i] * feedbackGain[(size_t)i];
             const float fdnR = scatteredR[(size_t)i] * feedbackGain[(size_t)i];
 
