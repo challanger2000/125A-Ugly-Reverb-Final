@@ -576,8 +576,12 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         const int mat = std::max(0, std::min(kMaterials - 1,
             (int)std::lround(material_ * (float)(kMaterials - 1))));
 
-        const float xL = inputSilentL ? 0.f : inL[s];
-        const float xR = inputSilentR ? 0.f : inR[s];
+        const float rawXL = inputSilentL ? 0.f : inL[s];
+        const float rawXR = inputSilentR ? 0.f : inR[s];
+        // Never allow malformed upstream audio to poison the feedback network.
+        // Treat NaN/Inf samples as silence; finite audio remains bit-identical.
+        const float xL = std::isfinite(rawXL) ? rawXL : 0.f;
+        const float xR = std::isfinite(rawXR) ? rawXR : 0.f;
 
         smSize_ += smoothCoef * (size_ - smSize_);
         smDecay_ += smoothCoef * (decay_ - smDecay_);
