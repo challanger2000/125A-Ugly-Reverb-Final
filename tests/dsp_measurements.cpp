@@ -949,6 +949,50 @@ int main()
             malformed.terminate();
         }
 
+        // An inactive VST3 input bus may expose null channel sample pointers.
+        // The reverb must treat this as silence and continue an existing tail
+        // into an active output bus without crashing.
+        {
+            Processor inactiveInput;
+            inactiveInput.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=128;
+            setup.sampleRate=48000.0;
+            inactiveInput.setupProcessing(setup);
+            inactiveInput.setTestParameter(UglyReverb::kMix,1.f);
+            inactiveInput.setTestParameter(UglyReverb::kPreDelay,0.f);
+            inactiveInput.setActive(true);
+
+            float inL[128] {}, inR[128] {}, outL[128] {}, outR[128] {};
+            inL[0]=1.f; inR[0]=1.f;
+            float* inPtrs[2]={inL,inR};
+            float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            ProcessData data {};
+            data.processMode=kRealtime; data.symbolicSampleSize=kSample32; data.numSamples=128;
+            data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
+            require(inactiveInput.process(data)==kResultOk,
+                    "V2 active input excitation processes successfully", failures);
+
+            float** nullInputChannels=nullptr;
+            inBus.channelBuffers32=nullInputChannels;
+            std::fill(std::begin(outL),std::end(outL),0.f);
+            std::fill(std::begin(outR),std::end(outR),0.f);
+            require(inactiveInput.process(data)==kResultOk,
+                    "V2 inactive input bus with null samples processes safely", failures);
+            double inactiveTailEnergy=0.0;
+            for(float v:outL) inactiveTailEnergy+=(double)v*(double)v;
+            for(float v:outR) inactiveTailEnergy+=(double)v*(double)v;
+            require(inactiveTailEnergy>0.0,
+                    "V2 inactive input bus still advances an existing reverb tail", failures);
+
+            inactiveInput.setActive(false);
+            inactiveInput.terminate();
+        }
+
         // Positive-length parameter-only blocks must still consume automation.
         {
             Processor paramOnly;
