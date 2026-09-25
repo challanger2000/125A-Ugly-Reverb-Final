@@ -1,6 +1,6 @@
 # 125A Ugly Reverb — Factory Presets
 
-These presets are built directly against the frozen v0.1.0 component-state format (version 1).
+These presets use the current versioned component-state format (version 1) with the stable Ugly Reverb processor UID and parameter IDs.
 They are deliberately designed as distinct starting points rather than randomized parameter variations.
 
 The presets contain component/DSP state only. They do not contain the private GUI zoom state.
