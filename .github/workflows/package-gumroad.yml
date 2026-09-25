@@ -17,10 +17,19 @@ jobs:
         run: |
           cmake -S . -B build -G "Visual Studio 18 2026" -A x64
 
-      - name: Build plugin
+      - name: Build release candidate and QA tools
         shell: pwsh
         run: |
-          cmake --build build --config Release --target UglyReverb --parallel
+          cmake --build build --config Release --target UglyReverb UglyReverbMeasurements UglyReverbReloadProbe validator --parallel
+
+      - name: DSP measurements
+        shell: pwsh
+        run: |
+          ctest --test-dir build -C Release --output-on-failure
+          $measure = Get-ChildItem -Path build -Recurse -File -Filter "UglyReverbMeasurements.exe" | Select-Object -First 1
+          if (-not $measure) { throw "UglyReverbMeasurements.exe not found" }
+          & $measure.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build PDF manuals
         shell: pwsh
@@ -65,6 +74,26 @@ jobs:
           } | Set-Content -Encoding ascii "$root/SHA256SUMS.txt"
 
           Compress-Archive -Path $root -DestinationPath "release/${baseName}_Gumroad.zip" -CompressionLevel Optimal
+
+      - name: Steinberg Validator on packaged VST3
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path release -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $validator = Get-ChildItem -Path build -Recurse -File -Filter "validator.exe" | Select-Object -First 1
+          if (-not $plugin) { throw "Packaged VST3 not found" }
+          if (-not $validator) { throw "validator.exe not found" }
+          & $validator.FullName $plugin.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Reload lifecycle diagnostic on packaged VST3
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path release -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $probe = Get-ChildItem -Path build -Recurse -File -Filter "UglyReverbReloadProbe.exe" | Select-Object -First 1
+          if (-not $plugin) { throw "Packaged VST3 not found" }
+          if (-not $probe) { throw "UglyReverbReloadProbe.exe not found" }
+          & $probe.FullName $plugin.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Gumroad package
         uses: actions/upload-artifact@v4
