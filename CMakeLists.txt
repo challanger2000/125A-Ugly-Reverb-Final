@@ -117,6 +117,7 @@ add_executable(UglyReverbMeasurements
 if(WIN32)
   add_executable(UglyReverbReloadProbe
     tests/reload_lifecycle.cpp
+    ${vst3sdk_SOURCE_DIR}/public.sdk/source/common/memorystream.cpp
     ${vst3sdk_SOURCE_DIR}/public.sdk/source/vst/hosting/module_win32.cpp
   )
   target_link_libraries(UglyReverbReloadProbe PRIVATE sdk_hosting sdk_common base pluginterfaces)
