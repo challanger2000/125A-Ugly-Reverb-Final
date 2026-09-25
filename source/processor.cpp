@@ -138,8 +138,11 @@ tresult PLUGIN_API Processor::setActive(TBool state)
     if (r != kResultOk)
         return r;
 
+    // setupProcessing() owns all buffer sizing/allocation. Activation only
+    // clears existing DSP state so repeated activate/deactivate cycles cannot
+    // trigger heap work.
     if (state)
-        resetDsp();
+        clearDsp();
     return r;
 }
 
