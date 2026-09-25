@@ -75,6 +75,60 @@ jobs:
 
           Compress-Archive -Path $root -DestinationPath "release/${baseName}_Gumroad.zip" -CompressionLevel Optimal
 
+      - name: Verify exact Gumroad ZIP contents
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -Path release -File -Filter "125A_Ugly_Reverb_v*_Windows_x64_Gumroad.zip" | Select-Object -First 1
+          if (-not $zip) { throw "Gumroad ZIP not found" }
+
+          $verifyRoot = "verified_zip"
+          if (Test-Path $verifyRoot) { Remove-Item $verifyRoot -Recurse -Force }
+          Expand-Archive -Path $zip.FullName -DestinationPath $verifyRoot -Force
+
+          $packageRoot = Get-ChildItem -Path $verifyRoot -Directory -Filter "125A_Ugly_Reverb_v*_Windows_x64" | Select-Object -First 1
+          if (-not $packageRoot) { throw "Expanded package root not found" }
+
+          $sums = Join-Path $packageRoot.FullName "SHA256SUMS.txt"
+          if (-not (Test-Path $sums)) { throw "SHA256SUMS.txt missing from expanded ZIP" }
+
+          foreach ($line in Get-Content $sums) {
+            if ($line -notmatch '^([0-9a-f]{64})  (.+)        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path $env:VERIFIED_PACKAGE_ROOT -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $validator = Get-ChildItem -Path build -Recurse -File -Filter "validator.exe" | Select-Object -First 1
+          if (-not $plugin) { throw "Packaged VST3 not found" }
+          if (-not $validator) { throw "validator.exe not found" }
+          & $validator.FullName $plugin.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Reload lifecycle diagnostic on packaged VST3
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path $env:VERIFIED_PACKAGE_ROOT -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $probe = Get-ChildItem -Path build -Recurse -File -Filter "UglyReverbReloadProbe.exe" | Select-Object -First 1
+          if (-not $plugin) { throw "Packaged VST3 not found" }
+          if (-not $probe) { throw "UglyReverbReloadProbe.exe not found" }
+          & $probe.FullName $plugin.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Gumroad package
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A_Ugly_Reverb_Windows_x64_Gumroad
+          path: release/125A_Ugly_Reverb_v*_Windows_x64_Gumroad.zip
+          if-no-files-found: error
+          retention-days: 7
+) { throw "Malformed checksum line: $line" }
+            $expected = $Matches[1]
+            $relative = $Matches[2].Replace('/','\')
+            $file = Join-Path $packageRoot.FullName $relative
+            if (-not (Test-Path $file -PathType Leaf)) { throw "Checksum file missing: $relative" }
+            $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+            if ($actual -ne $expected) { throw "Checksum mismatch: $relative" }
+          }
+
+          "VERIFIED_PACKAGE_ROOT=$($packageRoot.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Steinberg Validator on packaged VST3
         shell: pwsh
         run: |
