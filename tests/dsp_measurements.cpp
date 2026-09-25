@@ -359,6 +359,71 @@ RenderResult renderProgramFixture(double sr,double seconds,float material,float 
     return rr;
 }
 
+
+RenderResult renderFromState(double sr,double seconds,Steinberg::IBStream* state,int block=128)
+{
+    Processor p;
+    if(p.initialize(nullptr)!=kResultOk)
+        throw std::runtime_error("Processor initialize failed");
+    if(p.setState(state)!=kResultOk)
+        throw std::runtime_error("Processor setState failed");
+
+    ProcessSetup setup {};
+    setup.processMode=kRealtime;
+    setup.symbolicSampleSize=kSample32;
+    setup.maxSamplesPerBlock=block;
+    setup.sampleRate=sr;
+    if(p.setupProcessing(setup)!=kResultOk)
+        throw std::runtime_error("setupProcessing failed");
+    if(p.setActive(true)!=kResultOk)
+        throw std::runtime_error("setActive failed");
+
+    const size_t total=(size_t)std::llround(sr*seconds);
+    RenderResult rr;
+    rr.left.assign(total,0.f);
+    rr.right.assign(total,0.f);
+
+    std::vector<float> inL(block,0.f),inR(block,0.f),outL(block,0.f),outR(block,0.f);
+    float* inPtrs[2]={inL.data(),inR.data()};
+    float* outPtrs[2]={outL.data(),outR.data()};
+    AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+    AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+
+    bool sent=false;
+    size_t pos=0;
+    while(pos<total)
+    {
+        const int n=(int)std::min<size_t>(block,total-pos);
+        std::fill(inL.begin(),inL.end(),0.f);
+        std::fill(inR.begin(),inR.end(),0.f);
+        std::fill(outL.begin(),outL.end(),0.f);
+        std::fill(outR.begin(),outR.end(),0.f);
+        if(!sent) { inL[0]=1.f; inR[0]=1.f; sent=true; }
+
+        ProcessData data {};
+        data.processMode=kRealtime;
+        data.symbolicSampleSize=kSample32;
+        data.numSamples=n;
+        data.numInputs=1;
+        data.numOutputs=1;
+        data.inputs=&inBus;
+        data.outputs=&outBus;
+        if(p.process(data)!=kResultOk)
+            throw std::runtime_error("state render process failed");
+
+        for(int i=0;i<n;++i)
+        {
+            rr.left[pos+(size_t)i]=outL[(size_t)i];
+            rr.right[pos+(size_t)i]=outR[(size_t)i];
+        }
+        pos+=(size_t)n;
+    }
+
+    p.setActive(false);
+    p.terminate();
+    return rr;
+}
+
 RenderResult renderMaterialAutomationAtZero(double sr, double seconds, float material)
 {
     constexpr int block = 128;
@@ -858,6 +923,35 @@ int main()
         require(legacyRestored.getState(&migratedState)==kResultOk,
                 "Legacy state migrates to versioned serialization", failures);
         legacyRestored.terminate();
+
+        // State recall must restore the actual DSP response, not merely parse.
+        Steinberg::MemoryStream recallState;
+        p.setTestParameter(UglyReverb::kMaterial,0.7f);
+        p.setTestParameter(UglyReverb::kSize,0.81f);
+        p.setTestParameter(UglyReverb::kDecay,0.72f);
+        p.setTestParameter(UglyReverb::kPreDelay,0.21f);
+        p.setTestParameter(UglyReverb::kDiffusion,0.66f);
+        p.setTestParameter(UglyReverb::kDamping,0.31f);
+        p.setTestParameter(UglyReverb::kMetal,0.77f);
+        p.setTestParameter(UglyReverb::kClang,0.63f);
+        p.setTestParameter(UglyReverb::kRattle,0.22f);
+        p.setTestParameter(UglyReverb::kBody,0.61f);
+        p.setTestParameter(UglyReverb::kWidth,0.83f);
+        p.setTestParameter(UglyReverb::kMix,1.f);
+        p.setTestParameter(UglyReverb::kOutput,0.5f);
+        p.setTestParameter(UglyReverb::kDigital,0.f);
+        require(p.getState(&recallState)==kResultOk,
+                "V2 recall state serializes successfully", failures);
+        recallState.seek(0,Steinberg::IBStream::kIBSeekSet,nullptr);
+        auto recalledAudio=renderFromState(48000.0,1.5,&recallState,127);
+        auto directAudio=render(48000.0,1.5,0.7f,0.21f,0.f,false,true,127,
+                                0.72f,0.77f,0.63f,0.31f,0.22f,0.66f,0.61f,
+                                1.f,0.83f,1.f,kRealtime,0.81f,0.5f);
+        const double recallDelta=difference(recalledAudio.left,directAudio.left);
+        std::cout << "[INFO] v2_state_audio_recall_delta=" << recallDelta << "\n";
+        require(recallDelta<1e-7,
+                "V2 component state restores the exact DSP response", failures);
+
         p.terminate();
 
         // Material automation at offset 0 must affect the same sample/block as a preset value.
@@ -991,6 +1085,54 @@ int main()
 
             inactiveInput.setActive(false);
             inactiveInput.terminate();
+        }
+
+        // A point at the block boundary affects the following block, not any
+        // sample in the current block.
+        {
+            Processor boundary;
+            boundary.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=128;
+            setup.sampleRate=48000.0;
+            boundary.setupProcessing(setup);
+            boundary.setActive(true);
+
+            float inL[128],inR[128],outL[128] {},outR[128] {};
+            std::fill(std::begin(inL),std::end(inL),0.25f);
+            std::fill(std::begin(inR),std::end(inR),0.25f);
+            float* inPtrs[2]={inL,inR}; float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+
+            ParameterChanges changes(1);
+            int32 queueIndex=0;
+            auto* q=changes.addParameterData(UglyReverb::kBypass,queueIndex);
+            int32 point=0;
+            q->addPoint(128,1.0,point);
+
+            ProcessData data {};
+            data.processMode=kRealtime; data.symbolicSampleSize=kSample32; data.numSamples=128;
+            data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
+            data.inputParameterChanges=&changes;
+            require(boundary.process(data)==kResultOk,
+                    "Block-boundary automation processes successfully", failures);
+            require(std::fabs(outL[127]-0.25f)>1e-5f,
+                    "Block-boundary bypass does not affect the preceding sample", failures);
+
+            data.inputParameterChanges=nullptr;
+            float nextInL[1]={0.25f},nextInR[1]={0.25f},nextOutL[1]={0.f},nextOutR[1]={0.f};
+            float* nextInPtrs[2]={nextInL,nextInR}; float* nextOutPtrs[2]={nextOutL,nextOutR};
+            inBus.channelBuffers32=nextInPtrs; outBus.channelBuffers32=nextOutPtrs;
+            data.numSamples=1;
+            require(boundary.process(data)==kResultOk
+                    && nextOutL[0]==0.25f && nextOutR[0]==0.25f,
+                    "Block-boundary bypass becomes active in the following block", failures);
+
+            boundary.setActive(false);
+            boundary.terminate();
         }
 
         // Positive-length parameter-only blocks must still consume automation.
