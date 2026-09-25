@@ -921,6 +921,34 @@ int main()
             automated.terminate();
         }
 
+        // Malformed positive bus counts with null bus arrays must fail cleanly,
+        // never dereference null host data.
+        {
+            Processor malformed;
+            malformed.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=64;
+            setup.sampleRate=48000.0;
+            malformed.setupProcessing(setup);
+            malformed.setActive(true);
+
+            ProcessData bad {};
+            bad.processMode=kRealtime;
+            bad.symbolicSampleSize=kSample32;
+            bad.numSamples=64;
+            bad.numInputs=1;
+            bad.numOutputs=1;
+            bad.inputs=nullptr;
+            bad.outputs=nullptr;
+            require(malformed.process(bad)==kResultFalse,
+                    "Malformed null bus arrays fail cleanly", failures);
+
+            malformed.setActive(false);
+            malformed.terminate();
+        }
+
         // Positive-length parameter-only blocks must still consume automation.
         {
             Processor paramOnly;
