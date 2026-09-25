@@ -66,7 +66,7 @@ The core combines material-specific comb and allpass structures, modal weighting
 
 ## V2 validation status
 
-The V2 branch is undergoing full code, DSP, host-compliance and release-package verification. Final release validation details will be written here only after the exact release candidate has passed the complete validation chain.
+The exact V2.0.0 release candidate at `cab06dabdfa815b9fab91c7f2b4c92369dcc41ce` passed the Windows x64 build, complete DSP measurement suite, Steinberg Validator (47/47), canonical-package validation and five reload/editor lifecycle cycles. The release package also uses the same validated VST3 bundle and includes 16 factory presets.
 
 ## Installation
 
