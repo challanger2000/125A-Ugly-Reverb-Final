@@ -354,15 +354,17 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
     // Parameter-only process calls are valid VST3 host behaviour.  Even with
     // zero audio samples, consume queued values so processor/controller state
     // remains synchronized.
-    if (data.numSamples <= 0)
+    if (data.numSamples < 0)
+        return kResultFalse;
+    if (data.numSamples == 0)
     {
         consumeRemainingParameterPoints();
         return kResultOk;
     }
 
-    if (data.numInputs < 1 || data.numOutputs < 1)
+    if (data.numInputs == 0 && data.numOutputs == 0)
     {
-        // Parameter-only positive-length blocks still need to update processor state.
+        // Positive-length parameter-only blocks still need to update processor state.
         consumeRemainingParameterPoints();
         return kResultOk;
     }
