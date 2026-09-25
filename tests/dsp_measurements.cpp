@@ -125,6 +125,13 @@ double activeSampleFraction(const std::vector<float>& x,size_t start,size_t end,
     return (double)active/(double)(end-start);
 }
 
+size_t firstAbove(const std::vector<float>& x,double threshold)
+{
+    for(size_t i=0;i<x.size();++i)
+        if(std::fabs((double)x[i])>threshold) return i;
+    return x.size();
+}
+
 RenderResult render(double sr, double seconds, float material, float preDelay, float digital,
                     bool bypass=false, bool impulse=true, int block=128, float decay=0.58f,
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
@@ -449,6 +456,21 @@ int main()
         const size_t first70=(size_t)(48000.0*0.070);
         require(energy(delayed.left,0,first70) < 1e-12,
                 "Pre-delay prevents premature wet output", failures);
+
+        auto pre0=render(48000.0,0.40,0.5f,0.f,0.f);
+        auto pre50=render(48000.0,0.40,0.5f,0.5f,0.f);
+        auto pre100=render(48000.0,0.45,0.5f,1.f,0.f);
+        const double onset0Ms=1000.0*(double)firstAbove(pre0.left,1e-8)/48000.0;
+        const double onset50Ms=1000.0*(double)firstAbove(pre50.left,1e-8)/48000.0;
+        const double onset100Ms=1000.0*(double)firstAbove(pre100.left,1e-8)/48000.0;
+        std::cout << "[INFO] v2_predelay_onset_ms="
+                  << onset0Ms << "," << onset50Ms << "," << onset100Ms << "\n";
+        require(onset0Ms < 20.0,
+                "V2 PreDelay 0% starts the wet response promptly", failures);
+        require(onset50Ms > 80.0 && onset50Ms < 110.0,
+                "V2 PreDelay 50% maps near 90 ms", failures);
+        require(onset100Ms > 165.0 && onset100Ms < 200.0,
+                "V2 PreDelay 100% maps near 180 ms", failures);
 
         const float materialValues[] = {0.f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f,1.f};
         const char* materialNames[] = {"Plate","Thin Plate","Heavy Plate","Sheet","Spring","Steel",
