@@ -58,6 +58,9 @@ private:
     std::array<DelayLine, kAllpasses> apL_;
     std::array<DelayLine, kAllpasses> apR_;
     std::array<float, kCombs> rattlePhase_ {};
+    std::array<float, kCombs> rattlePhase2_ {};
+    std::array<float, kCombs> materialPhase_ {};
+    std::array<float, kCombs> materialPhase2_ {};
 
     std::vector<float> preL_, preR_;
     int preWrite_ = 0;
