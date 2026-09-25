@@ -53,6 +53,7 @@ private:
     float processAllpass(DelayLine& line, float input, float delaySamples, float feedback);
 
     double sampleRate_ = 44100.0;
+    bool dspReady_ = false;
     std::array<DelayLine, kCombs> combL_;
     std::array<DelayLine, kCombs> combR_;
     std::array<DelayLine, kAllpasses> apL_;
