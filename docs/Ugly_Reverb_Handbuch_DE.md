@@ -54,7 +54,7 @@ Metal, Clang und Rattle sind Bestandteile des Hallnetzwerks selbst und keine ein
 
 ## V2-Validierungsstatus
 
-Der V2-Stand wird vollständig auf Code, DSP, Host-Compliance und Release-Paket geprüft. Finale Validierungsdaten werden erst nach erfolgreicher Prüfung des exakten Release-Kandidaten eingetragen.
+Der exakte V2.0.0-Release-Kandidat `cab06dabdfa815b9fab91c7f2b4c92369dcc41ce` hat den Windows-x64-Build, die vollständige DSP-Messsuite, den Steinberg Validator (47/47), die Prüfung des kanonischen Plugin-Pakets sowie fünf Reload-/Editor-Lifecycle-Zyklen bestanden. Das Release-Paket verwendet dasselbe validierte VST3-Bundle und enthält 16 Factory-Presets.
 
 ## Lizenz
 
