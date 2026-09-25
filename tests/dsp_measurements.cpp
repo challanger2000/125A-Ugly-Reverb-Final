@@ -905,6 +905,54 @@ int main()
         require(restored.getState(&roundtrip)==kResultOk, "Restored state serializes again", failures);
         restored.terminate();
 
+        // Malformed versioned state must be rejected instead of feeding NaN/Inf
+        // or out-of-range normalized values into DSP/control state.
+        auto malformedStateRejected=[&](float badValue,const char* label) {
+            Steinberg::MemoryStream badState;
+            Steinberg::IBStreamer w(&badState,kLittleEndian);
+            w.writeInt32(UglyReverb::kComponentStateMagic);
+            w.writeInt32(UglyReverb::kComponentStateVersion);
+            for(int i=0;i<UglyReverb::kComponentStateValueCount;++i)
+                w.writeFloat(i==2?badValue:0.5f);
+            w.writeInt32(0);
+            badState.seek(0,Steinberg::IBStream::kIBSeekSet,nullptr);
+            Processor bad;
+            bad.initialize(nullptr);
+            const auto result=bad.setState(&badState);
+            bad.terminate();
+            require(result==kResultFalse,label,failures);
+        };
+        malformedStateRejected(std::numeric_limits<float>::quiet_NaN(),
+                               "Versioned component state rejects NaN values");
+        malformedStateRejected(std::numeric_limits<float>::infinity(),
+                               "Versioned component state rejects Inf values");
+        malformedStateRejected(1.25f,
+                               "Versioned component state rejects normalized values above 1");
+
+        // Direct/automated malformed parameter values share applyParameter().
+        // They must be ignored rather than snapping a control to an endpoint.
+        {
+            Processor finiteGuard;
+            finiteGuard.initialize(nullptr);
+            finiteGuard.setTestParameter(UglyReverb::kMix,0.37f);
+            finiteGuard.setTestParameter(UglyReverb::kMix,
+                                         std::numeric_limits<float>::quiet_NaN());
+            Steinberg::MemoryStream guardState;
+            require(finiteGuard.getState(&guardState)==kResultOk,
+                    "Finite-parameter guard state serializes",failures);
+            guardState.seek(0,Steinberg::IBStream::kIBSeekSet,nullptr);
+            Steinberg::IBStreamer r(&guardState,kLittleEndian);
+            Steinberg::int32 magic=0,version=0,bp=0;
+            float values[UglyReverb::kComponentStateValueCount] {};
+            bool parsed=r.readInt32(magic)&&r.readInt32(version);
+            for(int i=0;i<UglyReverb::kComponentStateValueCount && parsed;++i)
+                parsed=r.readFloat(values[i]);
+            parsed=parsed&&r.readInt32(bp);
+            require(parsed && std::fabs(values[11]-0.37f)<1e-7f,
+                    "Non-finite parameter value is ignored",failures);
+            finiteGuard.terminate();
+        }
+
         // Legacy pre-version state (14 floats + bypass) must remain loadable.
         Steinberg::MemoryStream legacyState;
         Steinberg::IBStreamer legacyWriter(&legacyState, kLittleEndian);
@@ -1166,6 +1214,29 @@ int main()
 
             boundary.setActive(false);
             boundary.terminate();
+        }
+
+        // Broken host lifecycle must fail safely, not dereference empty
+        // pre-delay buffers before setupProcessing().
+        {
+            Processor noSetup;
+            noSetup.initialize(nullptr);
+            float inL[1]={0.25f},inR[1]={0.25f},outL[1]={0.f},outR[1]={0.f};
+            float* inPtrs[2]={inL,inR};
+            float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            ProcessData data {};
+            data.processMode=kRealtime;
+            data.symbolicSampleSize=kSample32;
+            data.numSamples=1;
+            data.numInputs=1;
+            data.numOutputs=1;
+            data.inputs=&inBus;
+            data.outputs=&outBus;
+            require(noSetup.process(data)==kResultFalse,
+                    "Processing before setupProcessing fails safely",failures);
+            noSetup.terminate();
         }
 
         // Positive-length parameter-only blocks must still consume automation.
