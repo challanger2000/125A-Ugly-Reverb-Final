@@ -393,6 +393,7 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
     }
 
     const float smoothCoef = 1.f - std::exp(-1.f / std::max(1.f, 0.012f * (float)sampleRate_));
+    const float stereoTimeScale = (float)(sampleRate_ / 48000.0);
 
     // Eleven deliberately non-modern material networks.  Normalized legacy
     // anchors remain stable: 0.0 = Plate, 0.5 = Steel, 1.0 = Tank.
@@ -676,7 +677,6 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
                                * (std::sin(phase * motionRate[mat] + 0.37f * i)
                                + 0.23f * std::sin(phase * motionRate[mat] * 2.31f + i));
             const float delayL = ms * 0.001f * (float)sampleRate_ + rattleJitter + materialMotion;
-            const float stereoTimeScale = (float)(sampleRate_ / 48000.0);
             const float delayR = delayL + (17.f + 3.f * (float)i) * stereoTimeScale;
 
             const float yL = combL_[i].read(delayL);
@@ -784,7 +784,6 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         {
             const float uglyScale = 1.f - smMetal_ * (0.10f + 0.035f * i);
             const float dL = apMs[mat][i] * uglyScale * 0.001f * (float)sampleRate_;
-            const float stereoTimeScale = (float)(sampleRate_ / 48000.0);
             const float dR = dL + (11.f + 4.f * (float)i) * stereoTimeScale;
 
             const float stageL = processAllpass(apL_[i], apOutL, dL, apFeedback);
