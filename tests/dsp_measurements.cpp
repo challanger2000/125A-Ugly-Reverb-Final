@@ -162,7 +162,8 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
                     float rattle=0.12f, float diffusion=0.45f, float body=0.55f,
                     float mix=1.f, float width=0.75f, float impulseAmplitude=1.f,
-                    Steinberg::Vst::ProcessModes processMode=kRealtime, float size=0.55f)
+                    Steinberg::Vst::ProcessModes processMode=kRealtime, float size=0.55f,
+                    float output=0.5f)
 {
     block = std::max(1, block);
     Processor p;
@@ -192,7 +193,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
     p.setTestParameter(UglyReverb::kSize, size);
     p.setTestParameter(UglyReverb::kWidth, width);
     p.setTestParameter(UglyReverb::kMix, bypass ? 0.28f : mix);
-    p.setTestParameter(UglyReverb::kOutput, 0.5f);
+    p.setTestParameter(UglyReverb::kOutput, output);
     p.setTestParameter(UglyReverb::kBypass, bypass ? 1.f : 0.f);
 
     if (p.setActive(true) != kResultOk)
@@ -753,6 +754,26 @@ int main()
                               0.0f,0.75f);
         require(dryPurity.left[0] == 1.f && dryPurity.right[0] == 1.f,
                 "Mix 0% is exact dry at unity output", failures);
+
+        auto outMinus12=render(48000.0,0.05,0.5f,0.f,0.f,false,true,128,
+                                   0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,
+                                   0.f,0.75f,1.f,kRealtime,0.55f,0.f);
+        auto outZero=render(48000.0,0.05,0.5f,0.f,0.f,false,true,128,
+                            0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,
+                            0.f,0.75f,1.f,kRealtime,0.55f,0.5f);
+        auto outPlus12=render(48000.0,0.05,0.5f,0.f,0.f,false,true,128,
+                              0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,
+                              0.f,0.75f,1.f,kRealtime,0.55f,1.f);
+        const double expectedMinus12=std::pow(10.0,-12.0/20.0);
+        const double expectedPlus12=std::pow(10.0,12.0/20.0);
+        std::cout << "[INFO] v2_output_gain_samples="
+                  << outMinus12.left[0] << "," << outZero.left[0] << "," << outPlus12.left[0] << "\n";
+        require(std::fabs((double)outMinus12.left[0]-expectedMinus12)<1e-6,
+                "Output -12 dB maps accurately", failures);
+        require(std::fabs((double)outZero.left[0]-1.0)<1e-7,
+                "Output 0 dB is unity", failures);
+        require(std::fabs((double)outPlus12.left[0]-expectedPlus12)<1e-5,
+                "Output +12 dB maps accurately", failures);
 
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
