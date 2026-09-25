@@ -2,6 +2,7 @@
 
 #include "base/source/fstreamer.h"
 #include <cstring>
+#include <cmath>
 
 namespace UglyReverb {
 
@@ -37,7 +38,15 @@ inline bool readComponentStatePayload(Steinberg::IBStreamer& stream,
                 return false;
     }
 
-    return stream.readInt32(bypass);
+    if (!stream.readInt32(bypass))
+        return false;
+
+    for (float value : values)
+        if (!std::isfinite(value) || value < 0.f || value > 1.f)
+            return false;
+
+    bypass = bypass ? 1 : 0;
+    return true;
 }
 
 inline bool writeComponentStatePayload(Steinberg::IBStreamer& stream,
