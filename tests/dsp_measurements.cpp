@@ -1625,6 +1625,58 @@ int main()
             inplace.terminate();
         }
 
+        // Malformed process shapes must fail cleanly instead of being mistaken
+        // for parameter-only processing.
+        {
+            Processor malformedShape;
+            malformedShape.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=64;
+            setup.sampleRate=48000.0;
+            malformedShape.setupProcessing(setup);
+            malformedShape.setActive(true);
+
+            ProcessData negative {};
+            negative.processMode=kRealtime;
+            negative.symbolicSampleSize=kSample32;
+            negative.numSamples=-1;
+            negative.numInputs=0;
+            negative.numOutputs=0;
+            require(malformedShape.process(negative)==kResultFalse,
+                    "Negative process sample count is rejected",failures);
+
+            float outL[8] {},outR[8] {};
+            float* outPtrs[2]={outL,outR};
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            ProcessData outputOnly {};
+            outputOnly.processMode=kRealtime;
+            outputOnly.symbolicSampleSize=kSample32;
+            outputOnly.numSamples=8;
+            outputOnly.numInputs=0;
+            outputOnly.numOutputs=1;
+            outputOnly.outputs=&outBus;
+            require(malformedShape.process(outputOnly)==kResultFalse,
+                    "Asymmetric zero-input audio block is rejected",failures);
+
+            float inL[8] {},inR[8] {};
+            float* inPtrs[2]={inL,inR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            ProcessData inputOnly {};
+            inputOnly.processMode=kRealtime;
+            inputOnly.symbolicSampleSize=kSample32;
+            inputOnly.numSamples=8;
+            inputOnly.numInputs=1;
+            inputOnly.numOutputs=0;
+            inputOnly.inputs=&inBus;
+            require(malformedShape.process(inputOnly)==kResultFalse,
+                    "Asymmetric zero-output audio block is rejected",failures);
+
+            malformedShape.setActive(false);
+            malformedShape.terminate();
+        }
+
         // Positive-length parameter-only blocks must still consume automation.
         {
             Processor paramOnly;
