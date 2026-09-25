@@ -802,7 +802,7 @@ int main()
                   << corr441 << "," << corr480 << "," << corr960
                   << " spread=" << (corrMax-corrMin) << "\n";
         require(std::isfinite(corr441) && std::isfinite(corr480) && std::isfinite(corr960),
-                "V2 Width correlation remains finite across sample rates", failures);
+                "V2 processed-wet Width correlation remains finite across sample rates", failures);
 
         auto realtimeRender=render(48000.0,1.5,0.7f,0.12f,0.5f,false,true,127,
                                    0.73f,0.82f,0.61f,0.44f,0.19f,0.77f,0.58f,
