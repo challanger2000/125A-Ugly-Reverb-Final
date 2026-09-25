@@ -1456,6 +1456,55 @@ int main()
             silenceProbe.terminate();
         }
 
+        // Non-finite upstream audio must never poison the feedback state.
+        {
+            Processor nonFiniteAudio;
+            nonFiniteAudio.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=128;
+            setup.sampleRate=48000.0;
+            nonFiniteAudio.setupProcessing(setup);
+            nonFiniteAudio.setTestParameter(UglyReverb::kMix,1.f);
+            nonFiniteAudio.setTestParameter(UglyReverb::kPreDelay,0.f);
+            nonFiniteAudio.setActive(true);
+
+            float inL[128] {},inR[128] {},outL[128] {},outR[128] {};
+            inL[0]=std::numeric_limits<float>::quiet_NaN();
+            inR[0]=std::numeric_limits<float>::infinity();
+            float* inPtrs[2]={inL,inR}; float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            ProcessData data {};
+            data.processMode=kRealtime; data.symbolicSampleSize=kSample32; data.numSamples=128;
+            data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
+
+            require(nonFiniteAudio.process(data)==kResultOk,
+                    "V2 non-finite audio block processes safely",failures);
+            bool firstFinite=true;
+            for(float v:outL) firstFinite=firstFinite&&std::isfinite(v);
+            for(float v:outR) firstFinite=firstFinite&&std::isfinite(v);
+            require(firstFinite,
+                    "V2 non-finite input cannot create non-finite output",failures);
+
+            std::fill(std::begin(inL),std::end(inL),0.f);
+            std::fill(std::begin(inR),std::end(inR),0.f);
+            std::fill(std::begin(outL),std::end(outL),0.f);
+            std::fill(std::begin(outR),std::end(outR),0.f);
+            inL[0]=1.f; inR[0]=1.f;
+            require(nonFiniteAudio.process(data)==kResultOk,
+                    "V2 processes clean audio after malformed input",failures);
+            bool recoveredFinite=true;
+            for(float v:outL) recoveredFinite=recoveredFinite&&std::isfinite(v);
+            for(float v:outR) recoveredFinite=recoveredFinite&&std::isfinite(v);
+            require(recoveredFinite,
+                    "V2 feedback state remains finite after malformed input",failures);
+
+            nonFiniteAudio.setActive(false);
+            nonFiniteAudio.terminate();
+        }
+
         // Positive-length parameter-only blocks must still consume automation.
         {
             Processor paramOnly;
