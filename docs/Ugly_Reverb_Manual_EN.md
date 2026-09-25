@@ -25,7 +25,7 @@
 - **Clang** - emphasizes selected modal paths and deliberately exposes ringing.
 - **Rattle** - adds controlled mechanical modulation to selected resonances.
 - **Digital Color** - Clean / 12-bit / 8-bit quantization inside the feedback network.
-- **Mix** - linear dry/wet balance.
+- **Mix** - linear dry/wet balance. 0% is dry only; 100% is pure wet with no dry contribution.
 - **Output** - -12 dB to +12 dB.
 - **Bypass** - exact plug-in bypass.
 
@@ -35,7 +35,7 @@
 - stereo input / stereo output
 - 32-bit float processing
 - 0 samples reported latency
-- 150-second reported reverb tail
+- conservative 300-second reported reverb tail
 - sample-accurate parameter automation
 - versioned component state with migration from the earlier state format
 - GUI zoom 100 / 125 / 150 / 175 / 200%
@@ -52,15 +52,9 @@ Metal, Clang and Rattle are part of the reverb network itself rather than simple
 - **Lo-fi:** set Digital Color to 12-bit or 8-bit. Quantization sits inside the feedback network, so it changes the tail itself.
 - **Scale:** Size and Body reshape the resonant structure; extreme combinations are intentionally capable of strongly metallic results.
 
-## Final Validation
+## V2 Validation Status
 
-- GitHub Actions build #67: SUCCESS
-- DSP measurement suite: PASS
-- Steinberg VST3 Validator: 47/47 PASS
-- Canonical VST3 package validation: PASS
-- Reload/lifecycle diagnostic: 5/5 PASS
-- 125A Plugin Tester: PASS
-- Project-owned compiler warnings: 0
+The V2 build is undergoing full code, DSP, host-compliance and release-package verification. Final validation details will be added only after the exact release candidate has passed the complete validation chain.
 
 ## License
 
