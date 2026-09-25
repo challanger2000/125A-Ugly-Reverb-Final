@@ -814,17 +814,29 @@ int main()
         require(offlineDelta < 1e-7,
                 "V2 offline and realtime renders are deterministic matches", failures);
 
-        // Subnormal hardening: an input far below the zap threshold must not
-        // seed a persistent feedback tail.
+        // Tiny-value and true IEEE-subnormal hardening.  1e-25 is still a
+        // normal float but intentionally far below the internal zap threshold;
+        // denorm_min() exercises the actual subnormal class.
+        auto tinyProbe=render(48000.0,0.8,0.5f,0.f,0.f,false,true,128,
+                              0.95f,0.8f,0.7f,0.3f,0.1f,0.8f,0.55f,
+                              1.0f,0.75f,1.0e-25f);
+        const double tinyEnergy=energy(tinyProbe.left,0,tinyProbe.left.size())
+            + energy(tinyProbe.right,0,tinyProbe.right.size());
+
+        const float trueSubnormal=std::numeric_limits<float>::denorm_min();
         auto subnormalProbe=render(48000.0,0.8,0.5f,0.f,0.f,false,true,128,
                                    0.95f,0.8f,0.7f,0.3f,0.1f,0.8f,0.55f,
-                                   1.0f,0.75f,1.0e-25f);
+                                   1.0f,0.75f,trueSubnormal);
         const double subnormalEnergy=energy(
             subnormalProbe.left,0,subnormalProbe.left.size())
             + energy(subnormalProbe.right,0,subnormalProbe.right.size());
-        std::cout << "[INFO] v2_subnormal_probe_energy=" << subnormalEnergy << "\n";
+        std::cout << "[INFO] v2_tiny_probe_energy=" << tinyEnergy
+                  << " v2_subnormal_probe_energy=" << subnormalEnergy
+                  << " denorm_min=" << trueSubnormal << "\n";
+        require(tinyEnergy == 0.0,
+                "V2 tiny normal input cannot seed a feedback tail", failures);
         require(subnormalEnergy == 0.0,
-                "V2 subnormal input cannot seed a feedback tail", failures);
+                "V2 true subnormal input cannot seed a feedback tail", failures);
 
         // MIX semantics are strict: 100% means zero dry contribution and 0%
         // means exact dry.  A non-zero pre-delay makes any leaked direct signal
