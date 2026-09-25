@@ -394,11 +394,17 @@ int main()
         const size_t dampingStart=(size_t)(48000.0*0.20);
         const double openHF=hfProxy(openDamping.left,dampingStart);
         const double closedHF=hfProxy(closedDamping.left,dampingStart);
+        const double openTailEnergy=energy(openDamping.left,dampingStart,openDamping.left.size());
+        const double closedTailEnergy=energy(closedDamping.left,dampingStart,closedDamping.left.size());
         std::cout << "[INFO] v2_damping_hf_open=" << openHF
                   << " closed=" << closedHF
-                  << " ratio=" << (closedHF > 0.0 ? openHF/closedHF : 0.0) << "\n";
-        require(openHF > closedHF * 1.05,
-                "V2 Damping reduces normalized high-frequency tail structure", failures);
+                  << " ratio=" << (closedHF > 0.0 ? openHF/closedHF : 0.0)
+                  << " tail_energy_ratio="
+                  << (openTailEnergy > 0.0 ? closedTailEnergy/openTailEnergy : 0.0) << "\n";
+        require(openHF > closedHF * 1.20,
+                "V2 Damping clearly reduces normalized high-frequency tail structure", failures);
+        require(closedTailEnergy > openTailEnergy * 0.01,
+                "V2 maximum Damping preserves a meaningful reverb tail", failures);
         require(finiteBuffer(openDamping.left) && finiteBuffer(closedDamping.left),
                 "V2 frequency-shaped damping remains finite", failures);
 
