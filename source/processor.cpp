@@ -354,6 +354,13 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         consumeRemainingParameterPoints();
         return kResultOk;
     }
+
+    // Reverb can legitimately emit a tail while the input is silent. Clear any
+    // host-provided stale silence bits before writing output; reporting
+    // non-silence conservatively is always safe, whereas leaving a false
+    // "silent" flag could make a host discard valid tail audio.
+    data.outputs[0].silenceFlags = 0;
+
     const float* inL = (in && in[0]) ? in[0] : nullptr;
     const float* inR = (in && in[1]) ? in[1] : nullptr;
 
