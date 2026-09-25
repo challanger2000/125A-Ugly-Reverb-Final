@@ -222,6 +222,109 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
     return rr;
 }
 
+
+RenderResult renderProgramFixture(double sr,double seconds,float material,float damping,
+                                  float diffusion,float metal,float clang,float mix=1.f,
+                                  int block=128)
+{
+    block=std::max(1,block);
+    Processor p;
+    if(p.initialize(nullptr)!=kResultOk)
+        throw std::runtime_error("Processor initialize failed");
+
+    ProcessSetup setup {};
+    setup.processMode=kRealtime;
+    setup.symbolicSampleSize=kSample32;
+    setup.maxSamplesPerBlock=block;
+    setup.sampleRate=sr;
+    if(p.setupProcessing(setup)!=kResultOk)
+        throw std::runtime_error("setupProcessing failed");
+
+    p.setTestParameter(UglyReverb::kMaterial,material);
+    p.setTestParameter(UglyReverb::kPreDelay,0.04f);
+    p.setTestParameter(UglyReverb::kDecay,0.68f);
+    p.setTestParameter(UglyReverb::kDamping,damping);
+    p.setTestParameter(UglyReverb::kDiffusion,diffusion);
+    p.setTestParameter(UglyReverb::kMetal,metal);
+    p.setTestParameter(UglyReverb::kClang,clang);
+    p.setTestParameter(UglyReverb::kRattle,0.18f);
+    p.setTestParameter(UglyReverb::kBody,0.58f);
+    p.setTestParameter(UglyReverb::kWidth,0.78f);
+    p.setTestParameter(UglyReverb::kMix,mix);
+    p.setTestParameter(UglyReverb::kOutput,0.5f);
+    p.setTestParameter(UglyReverb::kDigital,0.f);
+    p.setTestParameter(UglyReverb::kBypass,0.f);
+
+    if(p.setActive(true)!=kResultOk)
+        throw std::runtime_error("setActive failed");
+
+    const size_t total=(size_t)std::llround(sr*seconds);
+    RenderResult rr;
+    rr.left.assign(total,0.f);
+    rr.right.assign(total,0.f);
+
+    std::vector<float> inL(block,0.f),inR(block,0.f),outL(block,0.f),outR(block,0.f);
+    float* inPtrs[2]={inL.data(),inR.data()};
+    float* outPtrs[2]={outL.data(),outR.data()};
+    AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+    AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+
+    size_t pos=0;
+    while(pos<total)
+    {
+        const int n=(int)std::min<size_t>(block,total-pos);
+        std::fill(inL.begin(),inL.end(),0.f);
+        std::fill(inR.begin(),inR.end(),0.f);
+        std::fill(outL.begin(),outL.end(),0.f);
+        std::fill(outR.begin(),outR.end(),0.f);
+
+        for(int i=0;i<n;++i)
+        {
+            const size_t sample=pos+(size_t)i;
+            const double t=(double)sample/sr;
+
+            // Deterministic pseudo-program: kick-like low pulse every 0.5 s,
+            // brighter short transient every 0.25 s, plus a low-level two-tone
+            // sustain.  This exercises repeated excitation and spectral memory
+            // without relying on external copyrighted audio fixtures.
+            const double halfBeat=std::fmod(t,0.5);
+            const double quarterBeat=std::fmod(t,0.25);
+            const float lowPulse=(halfBeat<0.035)
+                ? (float)(0.75*std::exp(-halfBeat*80.0)*std::sin(2.0*3.14159265358979323846*62.0*t))
+                : 0.f;
+            const float click=(quarterBeat<0.010)
+                ? (float)(0.28*std::exp(-quarterBeat*260.0)*std::sin(2.0*3.14159265358979323846*2300.0*t))
+                : 0.f;
+            const float sustain=(float)(0.045*std::sin(2.0*3.14159265358979323846*220.0*t)
+                                      +0.030*std::sin(2.0*3.14159265358979323846*880.0*t));
+            inL[(size_t)i]=lowPulse+click+sustain;
+            inR[(size_t)i]=lowPulse+0.82f*click+0.97f*sustain;
+        }
+
+        ProcessData data {};
+        data.processMode=kRealtime;
+        data.symbolicSampleSize=kSample32;
+        data.numSamples=n;
+        data.numInputs=1;
+        data.numOutputs=1;
+        data.inputs=&inBus;
+        data.outputs=&outBus;
+        if(p.process(data)!=kResultOk)
+            throw std::runtime_error("program fixture process failed");
+
+        for(int i=0;i<n;++i)
+        {
+            rr.left[pos+(size_t)i]=outL[(size_t)i];
+            rr.right[pos+(size_t)i]=outR[(size_t)i];
+        }
+        pos+=(size_t)n;
+    }
+
+    p.setActive(false);
+    p.terminate();
+    return rr;
+}
+
 RenderResult renderMaterialAutomationAtZero(double sr, double seconds, float material)
 {
     constexpr int block = 128;
@@ -802,6 +905,29 @@ int main()
         auto bypass=render(48000.0,0.1,0.5f,0.f,0.f,true,true);
         require(bypass.left[0]==1.f && bypass.right[0]==1.f, "Bypass passes input sample exactly", failures);
         require(energy(bypass.left,1,bypass.left.size())==0.0, "Bypass adds no output tail", failures);
+
+        // Repeated-excitation pseudo-program fixture.  This complements impulse
+        // responses by exercising spectral memory and overlapping reverb tails.
+        auto programDefault=renderProgramFixture(48000.0,4.0,0.5f,0.48f,0.45f,0.68f,0.55f);
+        auto programDark=renderProgramFixture(48000.0,4.0,0.5f,1.0f,0.45f,0.68f,0.55f);
+        auto programDiffuse=renderProgramFixture(48000.0,4.0,0.5f,0.48f,1.0f,0.68f,0.55f);
+        require(finiteBuffer(programDefault.left) && finiteBuffer(programDefault.right)
+                && finiteBuffer(programDark.left) && finiteBuffer(programDiffuse.left),
+                "V2 repeated-excitation program fixture remains finite", failures);
+        const double programDampingDelta=difference(programDefault.left,programDark.left);
+        const double programDiffusionDelta=difference(programDefault.left,programDiffuse.left);
+        const double programDefaultHF=hfProxy(programDefault.left,(size_t)(48000.0*0.5));
+        const double programDarkHF=hfProxy(programDark.left,(size_t)(48000.0*0.5));
+        std::cout << "[INFO] v2_program_damping_delta=" << programDampingDelta
+                  << " diffusion_delta=" << programDiffusionDelta
+                  << " default_hf=" << programDefaultHF
+                  << " dark_hf=" << programDarkHF << "\n";
+        require(programDampingDelta > 1e-4,
+                "V2 Damping materially affects repeated-excitation program material", failures);
+        require(programDiffusionDelta > 1e-4,
+                "V2 Diffusion materially affects repeated-excitation program material", failures);
+        require(programDefaultHF > programDarkHF * 1.10,
+                "V2 Damping darkens repeated-excitation program material", failures);
 
         // CI timing is informational only because hosted-runner CPU allocation is
         // not deterministic.  Tracking the same render over time still exposes
