@@ -962,6 +962,17 @@ int main()
         require(finiteBuffer(perfProbe.left) && finiteBuffer(perfProbe.right),
                 "V2 performance probe remains finite", failures);
 
+        auto extremeBlock1=render(48000.0,2.0,0.6f,1.f,1.f,false,true,1,
+                                  1.f,1.f,1.f,0.f,1.f,1.f,1.f,
+                                  1.f,1.f,1.f,kRealtime,1.f);
+        auto extremeBlock512=render(48000.0,2.0,0.6f,1.f,1.f,false,true,512,
+                                    1.f,1.f,1.f,0.f,1.f,1.f,1.f,
+                                    1.f,1.f,1.f,kRealtime,1.f);
+        const double extremeBlockDelta=difference(extremeBlock1.left,extremeBlock512.left);
+        std::cout << "[INFO] v2_extreme_block_delta=" << extremeBlockDelta << "\n";
+        require(extremeBlockDelta < 1e-7,
+                "V2 extreme moving-delay render is block-size deterministic", failures);
+
         for (float material : {0.f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f,1.f})
         {
             auto extreme = render(96000.0, 6.0, material, 1.f, 1.f, false, true, 128,
