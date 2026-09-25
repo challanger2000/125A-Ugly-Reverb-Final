@@ -443,6 +443,37 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         { 1.f,-1.f,-1.f, 1.f,-1.f, 1.f}
     };
 
+    // Material-specific signed permutations following the normalized Hadamard
+    // scatter.  A signed permutation is orthogonal, so the transform remains
+    // energy-preserving while each material receives a different recurrence
+    // pattern through the tank instead of sharing one generic FDN topology.
+    static constexpr int scatterPerm[kMaterials][kCombs] = {
+        {0,1,2,3,4,5,6,7},
+        {0,2,4,6,1,3,5,7},
+        {7,5,3,1,6,4,2,0},
+        {0,3,6,1,4,7,2,5},
+        {1,4,7,2,5,0,3,6},
+        {2,5,0,3,6,1,4,7},
+        {0,5,2,7,4,1,6,3},
+        {3,0,5,2,7,4,1,6},
+        {6,2,7,3,0,4,1,5},
+        {4,0,6,2,5,1,7,3},
+        {7,0,6,1,5,2,4,3}
+    };
+    static constexpr float scatterSign[kMaterials][kCombs] = {
+        { 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f},
+        { 1.f,-1.f, 1.f,-1.f, 1.f,-1.f, 1.f,-1.f},
+        {-1.f, 1.f, 1.f,-1.f, 1.f, 1.f,-1.f,-1.f},
+        { 1.f, 1.f,-1.f, 1.f,-1.f,-1.f, 1.f,-1.f},
+        {-1.f, 1.f,-1.f, 1.f,-1.f, 1.f,-1.f, 1.f},
+        { 1.f,-1.f,-1.f, 1.f, 1.f,-1.f, 1.f,-1.f},
+        { 1.f,-1.f, 1.f, 1.f,-1.f,-1.f, 1.f,-1.f},
+        {-1.f, 1.f, 1.f,-1.f,-1.f, 1.f, 1.f,-1.f},
+        { 1.f, 1.f,-1.f,-1.f, 1.f,-1.f,-1.f, 1.f},
+        {-1.f,-1.f, 1.f, 1.f,-1.f, 1.f, 1.f,-1.f},
+        { 1.f,-1.f,-1.f, 1.f,-1.f, 1.f, 1.f,-1.f}
+    };
+
     for (int32 s = 0; s < data.numSamples; ++s)
     {
         // Apply every automation point whose sample offset has been reached.
@@ -611,6 +642,18 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         std::array<float, kCombs> scatteredR {};
         hadamard8(feedbackSourceL, scatteredL);
         hadamard8(feedbackSourceR, scatteredR);
+
+        std::array<float, kCombs> materialScatterL {};
+        std::array<float, kCombs> materialScatterR {};
+        for (int i = 0; i < kCombs; ++i)
+        {
+            const int src = scatterPerm[mat][i];
+            const float sign = scatterSign[mat][i];
+            materialScatterL[(size_t)i] = scatteredL[(size_t)src] * sign;
+            materialScatterR[(size_t)i] = scatteredR[(size_t)src] * sign;
+        }
+        scatteredL = materialScatterL;
+        scatteredR = materialScatterR;
 
         // Energy-preserving stereo rotation inside the feedback network.  This
         // creates decorrelation in the tank itself instead of relying only on
