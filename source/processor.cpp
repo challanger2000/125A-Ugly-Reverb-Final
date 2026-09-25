@@ -612,6 +612,21 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         hadamard8(feedbackSourceL, scatteredL);
         hadamard8(feedbackSourceR, scatteredR);
 
+        // Energy-preserving stereo rotation inside the feedback network.  This
+        // creates decorrelation in the tank itself instead of relying only on
+        // output M/S widening.  The orthogonal rotation cannot increase vector
+        // energy, which keeps the feedback stability argument intact.
+        const float stereoAngle = smWidth_ * 0.42f; // radians, intentionally moderate
+        const float stereoCos = std::cos(stereoAngle);
+        const float stereoSin = std::sin(stereoAngle);
+        for (int i = 0; i < kCombs; ++i)
+        {
+            const float a = scatteredL[(size_t)i];
+            const float b = scatteredR[(size_t)i];
+            scatteredL[(size_t)i] = stereoCos * a + stereoSin * b;
+            scatteredR[(size_t)i] = stereoCos * b - stereoSin * a;
+        }
+
         // DIFFUSION now also controls feedback scattering.  Low values retain
         // the coarse V1-style modal bank; higher values increase echo density
         // without erasing the intentionally metallic identity.
