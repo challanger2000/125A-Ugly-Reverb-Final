@@ -929,6 +929,63 @@ int main()
         require(p.getLatencySamples()==0, "Reported latency is 0 samples", failures);
         require(p.getTailSamples()==14400000u, "Reported reverb tail is 300 seconds at 48 kHz", failures);
 
+        // Fresh processor state must match the public controller/GUI defaults.
+        {
+            Processor defaults;
+            defaults.initialize(nullptr);
+            Steinberg::MemoryStream defaultState;
+            require(defaults.getState(&defaultState)==kResultOk,
+                    "Fresh default component state serializes",failures);
+            defaultState.seek(0,Steinberg::IBStream::kIBSeekSet,nullptr);
+            Steinberg::IBStreamer r(&defaultState,kLittleEndian);
+            Steinberg::int32 magic=0,version=0,bp=0;
+            float values[UglyReverb::kComponentStateValueCount] {};
+            bool parsed=r.readInt32(magic)&&r.readInt32(version);
+            for(int i=0;i<UglyReverb::kComponentStateValueCount && parsed;++i)
+                parsed=r.readFloat(values[i]);
+            parsed=parsed&&r.readInt32(bp);
+            const float expected[UglyReverb::kComponentStateValueCount]={
+                0.f,0.55f,0.58f,0.08f,0.45f,0.48f,0.68f,0.55f,
+                0.12f,0.55f,0.75f,0.28f,0.5f,0.f
+            };
+            bool defaultsMatch=parsed
+                && magic==UglyReverb::kComponentStateMagic
+                && version==UglyReverb::kComponentStateVersion
+                && bp==0;
+            for(int i=0;i<UglyReverb::kComponentStateValueCount && defaultsMatch;++i)
+                defaultsMatch=std::fabs(values[i]-expected[i])<1e-7f;
+            require(defaultsMatch,
+                    "Processor default state exactly matches published parameter defaults",failures);
+            defaults.terminate();
+        }
+
+        // Unknown future versions and truncated payloads must fail cleanly.
+        {
+            Steinberg::MemoryStream future;
+            Steinberg::IBStreamer w(&future,kLittleEndian);
+            w.writeInt32(UglyReverb::kComponentStateMagic);
+            w.writeInt32(UglyReverb::kComponentStateVersion+1);
+            future.seek(0,Steinberg::IBStream::kIBSeekSet,nullptr);
+            Processor probe;
+            probe.initialize(nullptr);
+            require(probe.setState(&future)==kResultFalse,
+                    "Unknown future component state version is rejected",failures);
+            probe.terminate();
+        }
+        {
+            Steinberg::MemoryStream truncated;
+            Steinberg::IBStreamer w(&truncated,kLittleEndian);
+            w.writeInt32(UglyReverb::kComponentStateMagic);
+            w.writeInt32(UglyReverb::kComponentStateVersion);
+            w.writeFloat(0.5f); // deliberately incomplete payload
+            truncated.seek(0,Steinberg::IBStream::kIBSeekSet,nullptr);
+            Processor probe;
+            probe.initialize(nullptr);
+            require(probe.setState(&truncated)==kResultFalse,
+                    "Truncated component state is rejected",failures);
+            probe.terminate();
+        }
+
         Steinberg::MemoryStream state;
         p.setTestParameter(UglyReverb::kDecay, 0.93f);
         p.setTestParameter(UglyReverb::kMetal, 0.81f);
