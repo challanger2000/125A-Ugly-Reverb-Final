@@ -8,6 +8,7 @@
 #include "UglyControls.h"
 #include <algorithm>
 #include <cstring>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -89,7 +90,12 @@ tresult PLUGIN_API Controller::setComponentState(IBStream* state)
         kRattle,kBody,kWidth,kMix,kOutput,kDigital
     };
     for (int i = 0; i < kComponentStateValueCount; ++i)
-        setParamNormalized(ids[i], values[i]);
+    {
+        const double normalized = std::isfinite(values[i])
+            ? std::clamp<double>(values[i], 0.0, 1.0)
+            : 0.0;
+        setParamNormalized(ids[i], normalized);
+    }
     setParamNormalized(kBypass, bp ? 1.0 : 0.0);
     return kResultOk;
 }
@@ -137,6 +143,8 @@ tresult PLUGIN_API Controller::getState(IBStream* state)
 
 Steinberg::IPlugView* PLUGIN_API Controller::createView(const char* name)
 {
+    if (!name)
+        return nullptr;
     Steinberg::ConstString viewName(name);
     if (viewName == Steinberg::Vst::ViewType::kEditor)
         {
