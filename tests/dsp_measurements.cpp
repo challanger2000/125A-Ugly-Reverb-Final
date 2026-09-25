@@ -1321,7 +1321,34 @@ int main()
             data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
             require(silenceFlags.process(data)==kResultOk,
                     "V2 silence-flag probe processes successfully", failures);
-            require(outBus.silenceFlags==0,
+
+            // The tank has real propagation delay; do not assume the first
+            // 128-sample block already contains wet output. Advance silence
+            // until the first audible tail block and verify stale host flags
+            // are cleared exactly when audio is actually written.
+            std::fill(std::begin(inL),std::end(inL),0.f);
+            std::fill(std::begin(inR),std::end(inR),0.f);
+            bool audibleTailSeen=false;
+            bool clearedOnAudibleTail=false;
+            for(int blockIndex=0;blockIndex<32 && !audibleTailSeen;++blockIndex)
+            {
+                std::fill(std::begin(outL),std::end(outL),0.f);
+                std::fill(std::begin(outR),std::end(outR),0.f);
+                outBus.silenceFlags=3;
+                require(silenceFlags.process(data)==kResultOk,
+                        "V2 silence-flag tail advance processes successfully", failures);
+                double e=0.0;
+                for(float v:outL) e+=(double)v*(double)v;
+                for(float v:outR) e+=(double)v*(double)v;
+                if(e>0.0)
+                {
+                    audibleTailSeen=true;
+                    clearedOnAudibleTail=(outBus.silenceFlags==0);
+                }
+            }
+            require(audibleTailSeen,
+                    "V2 silence-flag probe reaches audible reverb tail", failures);
+            require(clearedOnAudibleTail,
                     "V2 clears stale output silence flags when writing reverb audio", failures);
 
             silenceFlags.setActive(false);
@@ -1358,13 +1385,16 @@ int main()
 
             float** nullInputChannels=nullptr;
             inBus.channelBuffers32=nullInputChannels;
-            std::fill(std::begin(outL),std::end(outL),0.f);
-            std::fill(std::begin(outR),std::end(outR),0.f);
-            require(inactiveInput.process(data)==kResultOk,
-                    "V2 inactive input bus with null samples processes safely", failures);
             double inactiveTailEnergy=0.0;
-            for(float v:outL) inactiveTailEnergy+=(double)v*(double)v;
-            for(float v:outR) inactiveTailEnergy+=(double)v*(double)v;
+            for(int blockIndex=0;blockIndex<32 && inactiveTailEnergy==0.0;++blockIndex)
+            {
+                std::fill(std::begin(outL),std::end(outL),0.f);
+                std::fill(std::begin(outR),std::end(outR),0.f);
+                require(inactiveInput.process(data)==kResultOk,
+                        "V2 inactive input bus with null samples processes safely", failures);
+                for(float v:outL) inactiveTailEnergy+=(double)v*(double)v;
+                for(float v:outR) inactiveTailEnergy+=(double)v*(double)v;
+            }
             require(inactiveTailEnergy>0.0,
                     "V2 inactive input bus still advances an existing reverb tail", failures);
 
@@ -1500,16 +1530,26 @@ int main()
             inBus.silenceFlags=0x3u;
             std::fill(std::begin(inL),std::end(inL),0.7f);
             std::fill(std::begin(inR),std::end(inR),0.7f);
-            std::fill(std::begin(outL),std::end(outL),0.f);
-            std::fill(std::begin(outR),std::end(outR),0.f);
-            require(silenceProbe.process(data)==kResultOk,
-                    "V2 silent input advances existing tail",failures);
             double tailEnergy=0.0;
-            for(float v:outL) tailEnergy+=(double)v*(double)v;
-            for(float v:outR) tailEnergy+=(double)v*(double)v;
+            bool tailFlagsCleared=false;
+            for(int blockIndex=0;blockIndex<32 && tailEnergy==0.0;++blockIndex)
+            {
+                std::fill(std::begin(outL),std::end(outL),0.f);
+                std::fill(std::begin(outR),std::end(outR),0.f);
+                require(silenceProbe.process(data)==kResultOk,
+                        "V2 silent input advances existing tail",failures);
+                double blockEnergy=0.0;
+                for(float v:outL) blockEnergy+=(double)v*(double)v;
+                for(float v:outR) blockEnergy+=(double)v*(double)v;
+                if(blockEnergy>0.0)
+                {
+                    tailEnergy=blockEnergy;
+                    tailFlagsCleared=(outBus.silenceFlags&0x3u)!=0x3u;
+                }
+            }
             require(tailEnergy>0.0,
                     "V2 silenceFlags do not truncate an existing reverb tail",failures);
-            require((outBus.silenceFlags&0x3u)!=0x3u,
+            require(tailFlagsCleared,
                     "V2 clears output silence flags while tail is audible",failures);
 
             silenceProbe.setActive(false);
