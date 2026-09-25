@@ -1066,6 +1066,53 @@ int main()
             finiteGuard.terminate();
         }
 
+        // Restoring valid state after setup/activation must update parameters
+        // without invalidating allocated DSP buffers or producing non-finite audio.
+        {
+            Steinberg::MemoryStream liveState;
+            Steinberg::IBStreamer w(&liveState,kLittleEndian);
+            w.writeInt32(UglyReverb::kComponentStateMagic);
+            w.writeInt32(UglyReverb::kComponentStateVersion);
+            const float liveValues[UglyReverb::kComponentStateValueCount]={
+                0.6f,0.83f,0.71f,0.17f,0.74f,0.36f,0.79f,0.67f,
+                0.31f,0.64f,0.88f,0.42f,0.5f,0.f
+            };
+            for(float v:liveValues) w.writeFloat(v);
+            w.writeInt32(0);
+            liveState.seek(0,Steinberg::IBStream::kIBSeekSet,nullptr);
+
+            Processor live;
+            live.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=64;
+            setup.sampleRate=48000.0;
+            live.setupProcessing(setup);
+            live.setActive(true);
+            require(live.setState(&liveState)==kResultOk,
+                    "Valid state restores after processor activation",failures);
+
+            float inL[64] {},inR[64] {},outL[64] {},outR[64] {};
+            inL[0]=1.f; inR[0]=1.f;
+            float* inPtrs[2]={inL,inR}; float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            ProcessData data {};
+            data.processMode=kRealtime; data.symbolicSampleSize=kSample32; data.numSamples=64;
+            data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
+            require(live.process(data)==kResultOk,
+                    "Audio processes after live state restore",failures);
+            bool finite=true;
+            for(float v:outL) finite=finite&&std::isfinite(v);
+            for(float v:outR) finite=finite&&std::isfinite(v);
+            require(finite,
+                    "Live state restore leaves finite DSP output",failures);
+
+            live.setActive(false);
+            live.terminate();
+        }
+
         // Legacy pre-version state (14 floats + bypass) must remain loadable.
         Steinberg::MemoryStream legacyState;
         Steinberg::IBStreamer legacyWriter(&legacyState, kLittleEndian);
@@ -1515,6 +1562,67 @@ int main()
 
             nonFiniteAudio.setActive(false);
             nonFiniteAudio.terminate();
+        }
+
+        // Hosts may legally process in place by aliasing input and output buffers.
+        // The processor must not corrupt unread samples or diverge from separate I/O.
+        {
+            Processor separate;
+            Processor inplace;
+            separate.initialize(nullptr);
+            inplace.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=128;
+            setup.sampleRate=48000.0;
+            separate.setupProcessing(setup);
+            inplace.setupProcessing(setup);
+            separate.setTestParameter(UglyReverb::kMix,0.37f);
+            inplace.setTestParameter(UglyReverb::kMix,0.37f);
+            separate.setActive(true);
+            inplace.setActive(true);
+
+            float inL[128] {},inR[128] {},outL[128] {},outR[128] {};
+            for(int i=0;i<128;++i) {
+                inL[i]=(i==0)?1.f:(float)(0.1*std::sin(0.07*i));
+                inR[i]=(i==0)?0.7f:(float)(0.08*std::cos(0.05*i));
+            }
+            float inPlaceL[128],inPlaceR[128];
+            std::copy(std::begin(inL),std::end(inL),std::begin(inPlaceL));
+            std::copy(std::begin(inR),std::end(inR),std::begin(inPlaceR));
+
+            float* inPtrs[2]={inL,inR};
+            float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            ProcessData data {};
+            data.processMode=kRealtime; data.symbolicSampleSize=kSample32; data.numSamples=128;
+            data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
+            require(separate.process(data)==kResultOk,
+                    "Separate-buffer render processes successfully",failures);
+
+            float* aliased[2]={inPlaceL,inPlaceR};
+            AudioBusBuffers aliasBus {}; aliasBus.numChannels=2; aliasBus.channelBuffers32=aliased;
+            ProcessData aliasData {};
+            aliasData.processMode=kRealtime; aliasData.symbolicSampleSize=kSample32; aliasData.numSamples=128;
+            aliasData.numInputs=1; aliasData.numOutputs=1; aliasData.inputs=&aliasBus; aliasData.outputs=&aliasBus;
+            require(inplace.process(aliasData)==kResultOk,
+                    "In-place aliased render processes successfully",failures);
+
+            double maxDelta=0.0;
+            for(int i=0;i<128;++i) {
+                maxDelta=std::max(maxDelta,std::fabs((double)outL[i]-inPlaceL[i]));
+                maxDelta=std::max(maxDelta,std::fabs((double)outR[i]-inPlaceR[i]));
+            }
+            std::cout << "[INFO] v2_inplace_max_delta=" << maxDelta << "\n";
+            require(maxDelta<1e-7,
+                    "In-place processing matches separate input/output buffers",failures);
+
+            separate.setActive(false);
+            inplace.setActive(false);
+            separate.terminate();
+            inplace.terminate();
         }
 
         // Positive-length parameter-only blocks must still consume automation.
