@@ -1624,6 +1624,24 @@ int main()
         require(extremeBlockDelta < 1e-7,
                 "V2 extreme moving-delay render is block-size deterministic", failures);
 
+        // Compact-tank torture: Size 0% plus maximum Metal/Clang/Rattle is
+        // the combination most likely to drive modulated delays toward their
+        // minimum. Exercise every material at 192 kHz and verify both channels.
+        for (float material : {0.f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f,1.f})
+        {
+            auto compactExtreme = render(192000.0,2.0,material,0.f,1.f,false,true,127,
+                                         0.95f,1.f,1.f,0.f,1.f,0.65f,0.55f,
+                                         1.f,1.f,1.f,kRealtime,0.f);
+            require(finiteBuffer(compactExtreme.left) && finiteBuffer(compactExtreme.right),
+                    "Compact V2 moving-delay extreme remains finite for material "
+                    + std::to_string(material), failures);
+            float compactPeakL=0.f,compactPeakR=0.f;
+            for(float v:compactExtreme.left) compactPeakL=std::max(compactPeakL,std::fabs(v));
+            for(float v:compactExtreme.right) compactPeakR=std::max(compactPeakR,std::fabs(v));
+            require(compactPeakL<2.f && compactPeakR<2.f,
+                    "Compact V2 moving-delay extreme remains bounded in both channels", failures);
+        }
+
         for (float material : {0.f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f,1.f})
         {
             auto extreme = render(96000.0, 6.0, material, 1.f, 1.f, false, true, 128,
