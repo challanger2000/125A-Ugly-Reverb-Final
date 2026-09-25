@@ -370,6 +370,11 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
 
     const float* inL = (in && in[0]) ? in[0] : nullptr;
     const float* inR = (in && in[1]) ? in[1] : nullptr;
+    const bool inputSilentL = !inL || (data.inputs[0].silenceFlags & 0x1u) != 0;
+    const bool inputSilentR = !inR || (data.inputs[0].silenceFlags & 0x2u) != 0;
+    bool outputSilentL = true;
+    bool outputSilentR = true;
+    data.outputs[0].silenceFlags = 0;
 
     // A conforming host calls setupProcessing() before audio processing, but
     // malformed lifecycle order must fail cleanly rather than indexing empty
@@ -557,8 +562,8 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         const int mat = std::max(0, std::min(kMaterials - 1,
             (int)std::lround(material_ * (float)(kMaterials - 1))));
 
-        const float xL = inL ? inL[s] : 0.f;
-        const float xR = inR ? inR[s] : 0.f;
+        const float xL = inputSilentL ? 0.f : inL[s];
+        const float xR = inputSilentR ? 0.f : inR[s];
 
         smSize_ += smoothCoef * (size_ - smSize_);
         smDecay_ += smoothCoef * (decay_ - smDecay_);
@@ -821,7 +826,13 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
             out[0][s] = (xL * dry + wetL * wet) * outGain;
             out[1][s] = (xR * dry + wetR * wet) * outGain;
         }
+
+        outputSilentL = outputSilentL && out[0][s] == 0.f;
+        outputSilentR = outputSilentR && out[1][s] == 0.f;
     }
+
+    if (outputSilentL) data.outputs[0].silenceFlags |= 0x1u;
+    if (outputSilentR) data.outputs[0].silenceFlags |= 0x2u;
 
     // A host may place a parameter point exactly at the block boundary.
     // It affects no sample in this block, but must become the target state for
