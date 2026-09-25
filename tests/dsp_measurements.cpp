@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <limits>
@@ -739,6 +740,21 @@ int main()
         auto bypass=render(48000.0,0.1,0.5f,0.f,0.f,true,true);
         require(bypass.left[0]==1.f && bypass.right[0]==1.f, "Bypass passes input sample exactly", failures);
         require(energy(bypass.left,1,bypass.left.size())==0.0, "Bypass adds no output tail", failures);
+
+        // CI timing is informational only because hosted-runner CPU allocation is
+        // not deterministic.  Tracking the same render over time still exposes
+        // large V2 performance regressions without turning noisy timing into a gate.
+        const auto perfStart=std::chrono::steady_clock::now();
+        auto perfProbe=render(96000.0,10.0,0.6f,0.f,1.f,false,true,128,
+                              0.85f,0.85f,0.75f,0.25f,0.55f,0.85f,0.60f,
+                              1.0f,1.0f);
+        const auto perfEnd=std::chrono::steady_clock::now();
+        const double perfSeconds=std::chrono::duration<double>(perfEnd-perfStart).count();
+        const double realtimeFactor=perfSeconds>0.0?10.0/perfSeconds:0.0;
+        std::cout << "[INFO] v2_perf_render_seconds=" << perfSeconds
+                  << " realtime_factor=" << realtimeFactor << "\n";
+        require(finiteBuffer(perfProbe.left) && finiteBuffer(perfProbe.right),
+                "V2 performance probe remains finite", failures);
 
         for (float material : {0.f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f,1.f})
         {
