@@ -127,8 +127,13 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& setup)
 
 tresult PLUGIN_API Processor::setActive(TBool state)
 {
-    if (state) resetDsp();
-    return AudioEffect::setActive(state);
+    const auto r = AudioEffect::setActive(state);
+    if (r != kResultOk)
+        return r;
+
+    if (state)
+        resetDsp();
+    return r;
 }
 
 tresult PLUGIN_API Processor::setProcessing(TBool state)
