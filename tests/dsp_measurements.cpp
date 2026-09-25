@@ -996,11 +996,11 @@ int main()
                                               1.f,128,1.f);
         auto rattleFullB=renderProgramFixture(48000.0,4.0,0.8f,0.42f,0.52f,0.82f,0.62f,
                                               1.f,128,1.f);
-        const double rattleDelta=difference(rattleOff.left,rattleFullA.left);
+        const double rattleProgramDelta=difference(rattleOff.left,rattleFullA.left);
         const double rattleRepeatDelta=difference(rattleFullA.left,rattleFullB.left);
-        std::cout << "[INFO] v2_rattle_program_delta=" << rattleDelta
+        std::cout << "[INFO] v2_rattle_program_delta=" << rattleProgramDelta
                   << " repeat_delta=" << rattleRepeatDelta << "\n";
-        require(rattleDelta > 1e-4,
+        require(rattleProgramDelta > 1e-4,
                 "V2 Rattle 100% materially changes repeated-excitation material", failures);
         require(rattleRepeatDelta < 1e-8,
                 "V2 Rattle modulation remains deterministic", failures);
