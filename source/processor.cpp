@@ -172,10 +172,12 @@ tresult PLUGIN_API Processor::setProcessing(TBool state)
 
 uint32 PLUGIN_API Processor::getTailSamples()
 {
-    // At extreme Size/Body settings the longest active tank path is about
-    // 0.32 s. With the 0.991 feedback ceiling, a conservative -60 dB bound is
-    // roughly 244 s before accounting for small modulation/offsets. Report
-    // 300 s so hosts do not truncate legitimate V2 tails at extreme settings.
+    // The current material/Size/Body/motion tables top out at about 321 ms
+    // for the longest right-channel comb path, while the delay storage itself
+    // is bounded below 350 ms. With the 0.991 feedback ceiling, -60 dB requires
+    // about 764 worst-case recurrences: roughly 245 s at the measured maximum
+    // path, or about 267 s even using the full 350 ms buffer bound. Report
+    // 300 s so hosts conservatively retain every legitimate V2 tail.
     constexpr double kReportedTailSeconds = 300.0;
     const double samples = std::ceil(sampleRate_ * kReportedTailSeconds);
     return static_cast<uint32>(std::min<double>(
