@@ -141,11 +141,11 @@ tresult PLUGIN_API Processor::setProcessing(TBool state)
 
 uint32 PLUGIN_API Processor::getTailSamples()
 {
-    // CLANG can raise selected comb feedback paths close to the 0.991 safety
-    // ceiling. Across the continuous Material/Metal/Size/Body range the worst
-    // analytical -60 dB decay is about 125 seconds. Report 150 seconds to leave
-    // margin for the small delay modulation and serial diffusion stages.
-    constexpr double kReportedTailSeconds = 150.0;
+    // At extreme Size/Body settings the longest active tank path is about
+    // 0.32 s. With the 0.991 feedback ceiling, a conservative -60 dB bound is
+    // roughly 244 s before accounting for small modulation/offsets. Report
+    // 300 s so hosts do not truncate legitimate V2 tails at extreme settings.
+    constexpr double kReportedTailSeconds = 300.0;
     const double samples = std::ceil(sampleRate_ * kReportedTailSeconds);
     return static_cast<uint32>(std::min<double>(
         samples, static_cast<double>(std::numeric_limits<uint32>::max())));
