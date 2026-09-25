@@ -16,7 +16,7 @@ The presets contain component/DSP state only. They do not contain the private GU
 | Thin Sheet Slap | Thin Plate | 30% | 24% | 3 ms | 22% | 34% | 72% | 66% | 5% | 38% | 56% | 20% | -1.5 dB | Clean |
 | Pipe Resonator | Pipe | 58% | 56% | 16 ms | 30% | 46% | 74% | 72% | 12% | 62% | 72% | 27% | -1.5 dB | Clean |
 | Oil Can Wobble | Oil Can | 54% | 60% | 20 ms | 42% | 60% | 56% | 48% | 56% | 66% | 82% | 29% | -1.0 dB | Clean |
-| Broken Drum | Metal Drum | 46% | 46% | 10 ms | 28% | 40% | 82% | 78% | 34% | 72% | 62% | 30% | -2.0 dB | Clean |
+| Broken Drum | Metal Drum | 46% | 46% | 10 ms | 28% | 40% | 82% | 82% | 34% | 72% | 62% | 30% | -2.0 dB | Clean |
 | Factory Floor | Chamber | 66% | 62% | 22 ms | 46% | 48% | 72% | 64% | 22% | 58% | 84% | 32% | -1.5 dB | 12-bit |
 | Machine Room | Steel | 50% | 50% | 14 ms | 40% | 44% | 78% | 70% | 18% | 54% | 76% | 30% | -2.0 dB | 12-bit |
 | Rusted Tank | Tank | 74% | 72% | 28 ms | 36% | 66% | 70% | 68% | 28% | 74% | 90% | 30% | -2.0 dB | Clean |
