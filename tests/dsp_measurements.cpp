@@ -1649,9 +1649,11 @@ int main()
                                   1.f, 1.f, 1.f, kRealtime, 1.f);
             require(finiteBuffer(extreme.left) && finiteBuffer(extreme.right),
                     "Extreme settings remain finite for material " + std::to_string(material), failures);
-            float peak = 0.f;
-            for (float v : extreme.left) peak = std::max(peak, std::fabs(v));
-            require(peak < 2.0f, "Extreme settings remain bounded", failures);
+            float peakL = 0.f, peakR = 0.f;
+            for (float v : extreme.left) peakL = std::max(peakL, std::fabs(v));
+            for (float v : extreme.right) peakR = std::max(peakR, std::fabs(v));
+            require(peakL < 2.0f && peakR < 2.0f,
+                    "Extreme settings remain bounded in both channels", failures);
         }
     }
     catch(const std::exception& e)
