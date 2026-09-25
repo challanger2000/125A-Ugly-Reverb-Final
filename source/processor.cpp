@@ -366,6 +366,15 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
     const float* inL = (in && in[0]) ? in[0] : nullptr;
     const float* inR = (in && in[1]) ? in[1] : nullptr;
 
+    // A conforming host calls setupProcessing() before audio processing, but
+    // malformed lifecycle order must fail cleanly rather than indexing empty
+    // delay buffers.
+    if (preL_.empty() || preR_.empty())
+    {
+        consumeRemainingParameterPoints();
+        return kResultFalse;
+    }
+
     const float smoothCoef = 1.f - std::exp(-1.f / std::max(1.f, 0.012f * (float)sampleRate_));
 
     // Eleven deliberately non-modern material networks.  Normalized legacy
