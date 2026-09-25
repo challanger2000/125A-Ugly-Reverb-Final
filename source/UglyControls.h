@@ -41,11 +41,13 @@ public:
 
 class UglyKnob final : public VSTGUI::CKnobBase {
 public:
-    UglyKnob(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag);
+    UglyKnob(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag,float defaultValue);
     UglyKnob(const UglyKnob& o);
     ~UglyKnob() noexcept override;
     VSTGUI::CBaseObject* newCopy() const override { return new UglyKnob(*this); }
     void draw(VSTGUI::CDrawContext* c) override;
+    VSTGUI::CMouseEventResult onMouseDown(VSTGUI::CPoint& where,
+                                           const VSTGUI::CButtonState& buttons) override;
 private:
     VSTGUI::CMultiFrameBitmap* strip_ {nullptr};
     int knobPixels_ {0};
@@ -54,7 +56,7 @@ private:
 class UglySelector final : public VSTGUI::CControl {
 public:
     UglySelector(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag,
-                 std::vector<std::string> labels);
+                 std::vector<std::string> labels,float defaultValue);
     UglySelector(const UglySelector& o);
     VSTGUI::CBaseObject* newCopy() const override { return new UglySelector(*this); }
     void draw(VSTGUI::CDrawContext* c) override;
@@ -66,10 +68,12 @@ private:
 
 class UglyToggle final : public VSTGUI::COnOffButton {
 public:
-    UglyToggle(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag);
+    UglyToggle(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag,float defaultValue);
     UglyToggle(const UglyToggle& o);
     VSTGUI::CBaseObject* newCopy() const override { return new UglyToggle(*this); }
     void draw(VSTGUI::CDrawContext* c) override;
+    VSTGUI::CMouseEventResult onMouseDown(VSTGUI::CPoint& where,
+                                           const VSTGUI::CButtonState& buttons) override;
 };
 
 class UglyZoomControl final : public VSTGUI::CControl {
