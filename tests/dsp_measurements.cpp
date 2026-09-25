@@ -96,7 +96,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
                     bool bypass=false, bool impulse=true, int block=128, float decay=0.58f,
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
                     float rattle=0.12f, float diffusion=0.45f, float body=0.55f,
-                    float mix=1.f)
+                    float mix=1.f, float width=0.75f)
 {
     block = std::max(1, block);
     Processor p;
@@ -123,6 +123,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
     p.setTestParameter(UglyReverb::kRattle, rattle);
     p.setTestParameter(UglyReverb::kDiffusion, diffusion);
     p.setTestParameter(UglyReverb::kBody, body);
+    p.setTestParameter(UglyReverb::kWidth, width);
     p.setTestParameter(UglyReverb::kMix, bypass ? 0.28f : mix);
     p.setTestParameter(UglyReverb::kOutput, 0.5f);
     p.setTestParameter(UglyReverb::kBypass, bypass ? 1.f : 0.f);
@@ -428,15 +429,23 @@ int main()
         // WIDTH must now alter the internal tank relationship, not merely scale
         // the output side channel.  Compare wet tails with identical mono input.
         auto narrowTank=render(48000.0,1.8,0.5f,0.f,0.f,false,true,128,
-                               0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f);
+                               0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f,1.0f,0.0f);
         auto wideTank=render(48000.0,1.8,0.5f,0.f,0.f,false,true,128,
-                             0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f);
-        // Width is not currently an argument of render(); set it through a
-        // targeted follow-up render below once the helper exposes it.
-        const double baselineCorr=normalizedCorrelation(
-            narrowTank.left,narrowTank.right,(size_t)(48000*0.20),(size_t)(48000*1.50));
-        require(std::isfinite(baselineCorr),
-                "V2 stereo tank correlation metric remains finite", failures);
+                             0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f,1.0f,1.0f);
+        const size_t corrStart=(size_t)(48000*0.20);
+        const size_t corrEnd=(size_t)(48000*1.50);
+        const double narrowCorr=std::fabs(normalizedCorrelation(
+            narrowTank.left,narrowTank.right,corrStart,corrEnd));
+        const double wideCorr=std::fabs(normalizedCorrelation(
+            wideTank.left,wideTank.right,corrStart,corrEnd));
+        const double widthDelta=difference(narrowTank.left,wideTank.left);
+        std::cout << "[INFO] v2_width_corr_narrow=" << narrowCorr
+                  << " wide=" << wideCorr
+                  << " delta=" << widthDelta << "\n";
+        require(std::isfinite(narrowCorr) && std::isfinite(wideCorr),
+                "V2 stereo tank correlation metrics remain finite", failures);
+        require(widthDelta > 1e-4,
+                "V2 Width materially changes the internal tank response", failures);
 
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
