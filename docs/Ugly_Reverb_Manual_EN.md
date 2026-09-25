@@ -54,7 +54,7 @@ Metal, Clang and Rattle are part of the reverb network itself rather than simple
 
 ## V2 Validation Status
 
-The V2 build is undergoing full code, DSP, host-compliance and release-package verification. Final validation details will be added only after the exact release candidate has passed the complete validation chain.
+The exact V2.0.0 release candidate `cab06dabdfa815b9fab91c7f2b4c92369dcc41ce` passed the Windows x64 build, complete DSP measurement suite, Steinberg Validator (47/47), canonical plug-in package validation and five reload/editor lifecycle cycles. The release package uses the same validated VST3 bundle and includes 16 factory presets.
 
 ## License
 
