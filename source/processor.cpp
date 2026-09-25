@@ -116,11 +116,18 @@ tresult PLUGIN_API Processor::terminate()
 
 tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& setup)
 {
+    // Reject malformed rates before any size calculation.  This avoids
+    // undefined float-to-int conversion or pathological allocations if a
+    // broken host supplies NaN/Inf or an implausibly huge value.
+    if (!std::isfinite(setup.sampleRate) || setup.sampleRate <= 1.0
+        || setup.sampleRate > 1536000.0)
+        return kResultFalse;
+
     const auto r = AudioEffect::setupProcessing(setup);
     if (r != kResultOk)
         return r;
 
-    sampleRate_ = setup.sampleRate > 1.0 ? setup.sampleRate : 44100.0;
+    sampleRate_ = setup.sampleRate;
     resetDsp();
     return r;
 }
