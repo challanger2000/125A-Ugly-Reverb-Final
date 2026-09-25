@@ -219,7 +219,13 @@ void Processor::clearDsp()
     preWrite_ = 0;
 
     for (int i = 0; i < kCombs; ++i)
-        rattlePhase_[i] = (2.f * kPi * (float)i) / (float)kCombs;
+    {
+        const float base = (2.f * kPi * (float)i) / (float)kCombs;
+        rattlePhase_[i] = base;
+        rattlePhase2_[i] = std::fmod(base * 2.7f, 2.f * kPi);
+        materialPhase_[i] = base;
+        materialPhase2_[i] = std::fmod(base * 2.31f, 2.f * kPi);
+    }
 
     resetSmoothers();
 }
@@ -672,20 +678,30 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         // network while preserving the deliberately exposed modal character.
         for (int i = 0; i < kCombs; ++i)
         {
-            rattlePhase_[i] += (2.f * kPi * (0.13f + 0.037f * i)) / (float)sampleRate_;
-            if (rattlePhase_[i] >= 2.f * kPi) rattlePhase_[i] -= 2.f * kPi;
+            const float baseStep =
+                (2.f * kPi * (0.13f + 0.037f * i)) / (float)sampleRate_;
+            auto advancePhase = [](float& phase, float step)
+            {
+                phase += step;
+                if (phase >= 2.f * kPi)
+                    phase -= 2.f * kPi;
+            };
+            advancePhase(rattlePhase_[i], baseStep);
+            advancePhase(rattlePhase2_[i], baseStep * 2.7f);
+            advancePhase(materialPhase_[i], baseStep * motionRate[mat]);
+            advancePhase(materialPhase2_[i], baseStep * motionRate[mat] * 2.31f);
 
             float ms = lerp(baseMs[mat][i], uglyMs[mat][i], smMetal_);
             ms *= sizeScale;
             ms *= (i & 1) ? (1.f / bodySkew) : bodySkew;
 
             const float rattleMask = (i == 1 || i == 4 || i == 6) ? 1.f : 0.25f;
-            const float phase = rattlePhase_[i];
             const float rattleJitter = smRattle_ * rattleMask * 0.0035f * (float)sampleRate_
-                               * (std::sin(phase) + 0.31f * std::sin(phase * 2.7f + i));
+                               * (std::sin(rattlePhase_[i])
+                               + 0.31f * std::sin(rattlePhase2_[i] + i));
             const float materialMotion = intrinsicMotion[mat] * (float)sampleRate_
-                               * (std::sin(phase * motionRate[mat] + 0.37f * i)
-                               + 0.23f * std::sin(phase * motionRate[mat] * 2.31f + i));
+                               * (std::sin(materialPhase_[i] + 0.37f * i)
+                               + 0.23f * std::sin(materialPhase2_[i] + i));
 
             const float baseDelaySamples = ms * 0.001f * (float)sampleRate_;
             // Keep extreme motion strong but away from the hard 1-sample read
