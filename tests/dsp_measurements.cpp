@@ -130,7 +130,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
                     float rattle=0.12f, float diffusion=0.45f, float body=0.55f,
                     float mix=1.f, float width=0.75f, float impulseAmplitude=1.f,
-                    Steinberg::Vst::ProcessModes processMode=kRealtime)
+                    Steinberg::Vst::ProcessModes processMode=kRealtime, float size=0.55f)
 {
     block = std::max(1, block);
     Processor p;
@@ -157,6 +157,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
     p.setTestParameter(UglyReverb::kRattle, rattle);
     p.setTestParameter(UglyReverb::kDiffusion, diffusion);
     p.setTestParameter(UglyReverb::kBody, body);
+    p.setTestParameter(UglyReverb::kSize, size);
     p.setTestParameter(UglyReverb::kWidth, width);
     p.setTestParameter(UglyReverb::kMix, bypass ? 0.28f : mix);
     p.setTestParameter(UglyReverb::kOutput, 0.5f);
@@ -964,7 +965,8 @@ int main()
         for (float material : {0.f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f,1.f})
         {
             auto extreme = render(96000.0, 6.0, material, 1.f, 1.f, false, true, 128,
-                                  1.f, 1.f, 1.f, 0.f, 1.f, 0.55f, 0.55f);
+                                  1.f, 1.f, 1.f, 0.f, 1.f, 1.f, 1.f,
+                                  1.f, 1.f, 1.f, kRealtime, 1.f);
             require(finiteBuffer(extreme.left) && finiteBuffer(extreme.right),
                     "Extreme settings remain finite for material " + std::to_string(material), failures);
             float peak = 0.f;
