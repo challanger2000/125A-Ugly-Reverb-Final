@@ -501,6 +501,24 @@ int main()
         require(bodyDelta > 1e-4,
                 "V2 Body materially changes the modal balance across its range", failures);
 
+        auto decay0=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.f);
+        auto decay25=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.25f);
+        auto decay50=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.50f);
+        auto decay75=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.75f);
+        auto decay100=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,1.f);
+        const size_t decayLateStart=(size_t)(48000.0*1.25);
+        const double d0=energy(decay0.left,decayLateStart,decay0.left.size());
+        const double d25=energy(decay25.left,decayLateStart,decay25.left.size());
+        const double d50=energy(decay50.left,decayLateStart,decay50.left.size());
+        const double d75=energy(decay75.left,decayLateStart,decay75.left.size());
+        const double d100=energy(decay100.left,decayLateStart,decay100.left.size());
+        std::cout << "[INFO] v2_decay_ladder="
+                  << d0 << "," << d25 << "," << d50 << "," << d75 << "," << d100 << "\n";
+        require(d25>d0 && d50>d25 && d75>d50 && d100>d75,
+                "V2 Decay late-tail energy rises monotonically 0/25/50/75/100%", failures);
+        require(d50>d25*1.5 && d75>d50*1.5,
+                "V2 Decay has useful separation through the musical range", failures);
+
         auto shortDecay=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.15f);
         auto longDecay=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.90f);
         const double shortLate=energy(shortDecay.left,(size_t)(48000.0*1.5),shortDecay.left.size());
