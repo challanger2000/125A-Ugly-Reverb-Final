@@ -1259,6 +1259,79 @@ int main()
             noSetup.terminate();
         }
 
+        // VST3 silenceFlags are authoritative even when host buffers contain
+        // non-zero garbage. Silent input must not excite the tank, and output
+        // silence flags must describe the produced block accurately.
+        {
+            Processor silenceProbe;
+            silenceProbe.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=128;
+            setup.sampleRate=48000.0;
+            silenceProbe.setupProcessing(setup);
+            silenceProbe.setTestParameter(UglyReverb::kMix,1.f);
+            silenceProbe.setTestParameter(UglyReverb::kPreDelay,0.f);
+            silenceProbe.setActive(true);
+
+            float inL[128],inR[128],outL[128] {},outR[128] {};
+            std::fill(std::begin(inL),std::end(inL),0.5f);
+            std::fill(std::begin(inR),std::end(inR),-0.5f);
+            float* inPtrs[2]={inL,inR};
+            float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {};
+            inBus.numChannels=2;
+            inBus.channelBuffers32=inPtrs;
+            inBus.silenceFlags=0x3u;
+            AudioBusBuffers outBus {};
+            outBus.numChannels=2;
+            outBus.channelBuffers32=outPtrs;
+            ProcessData data {};
+            data.processMode=kRealtime;
+            data.symbolicSampleSize=kSample32;
+            data.numSamples=128;
+            data.numInputs=1;
+            data.numOutputs=1;
+            data.inputs=&inBus;
+            data.outputs=&outBus;
+
+            require(silenceProbe.process(data)==kResultOk,
+                    "V2 flagged-silent input processes successfully",failures);
+            require(energy(std::vector<float>(outL,outL+128),0,128)==0.0
+                    && energy(std::vector<float>(outR,outR+128),0,128)==0.0,
+                    "V2 silenceFlags suppress non-zero input buffer contents",failures);
+            require((outBus.silenceFlags&0x3u)==0x3u,
+                    "V2 reports silent output flags for a silent block",failures);
+
+            inBus.silenceFlags=0;
+            std::fill(std::begin(inL),std::end(inL),0.f);
+            std::fill(std::begin(inR),std::end(inR),0.f);
+            inL[0]=1.f; inR[0]=1.f;
+            std::fill(std::begin(outL),std::end(outL),0.f);
+            std::fill(std::begin(outR),std::end(outR),0.f);
+            require(silenceProbe.process(data)==kResultOk,
+                    "V2 unflagged impulse excites tank",failures);
+
+            inBus.silenceFlags=0x3u;
+            std::fill(std::begin(inL),std::end(inL),0.7f);
+            std::fill(std::begin(inR),std::end(inR),0.7f);
+            std::fill(std::begin(outL),std::end(outL),0.f);
+            std::fill(std::begin(outR),std::end(outR),0.f);
+            require(silenceProbe.process(data)==kResultOk,
+                    "V2 silent input advances existing tail",failures);
+            double tailEnergy=0.0;
+            for(float v:outL) tailEnergy+=(double)v*(double)v;
+            for(float v:outR) tailEnergy+=(double)v*(double)v;
+            require(tailEnergy>0.0,
+                    "V2 silenceFlags do not truncate an existing reverb tail",failures);
+            require((outBus.silenceFlags&0x3u)!=0x3u,
+                    "V2 clears output silence flags while tail is audible",failures);
+
+            silenceProbe.setActive(false);
+            silenceProbe.terminate();
+        }
+
         // Positive-length parameter-only blocks must still consume automation.
         {
             Processor paramOnly;
