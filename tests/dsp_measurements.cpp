@@ -783,6 +783,26 @@ int main()
         require(widthDelta > 1e-4,
                 "V2 Width materially changes the internal tank response", failures);
 
+        auto width441=render(44100.0,1.8,0.5f,0.f,0.f,false,true,128,
+                            0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f,1.0f,1.0f);
+        auto width480=render(48000.0,1.8,0.5f,0.f,0.f,false,true,128,
+                            0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f,1.0f,1.0f);
+        auto width960=render(96000.0,1.8,0.5f,0.f,0.f,false,true,128,
+                            0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f,1.0f,1.0f);
+        const double corr441=std::fabs(normalizedCorrelation(
+            width441.left,width441.right,(size_t)(44100.0*0.20),(size_t)(44100.0*1.50)));
+        const double corr480=std::fabs(normalizedCorrelation(
+            width480.left,width480.right,(size_t)(48000.0*0.20),(size_t)(48000.0*1.50)));
+        const double corr960=std::fabs(normalizedCorrelation(
+            width960.left,width960.right,(size_t)(96000.0*0.20),(size_t)(96000.0*1.50)));
+        const double corrMin=std::min({corr441,corr480,corr960});
+        const double corrMax=std::max({corr441,corr480,corr960});
+        std::cout << "[INFO] v2_width_corr_by_sr="
+                  << corr441 << "," << corr480 << "," << corr960
+                  << " spread=" << (corrMax-corrMin) << "\n";
+        require(std::isfinite(corr441) && std::isfinite(corr480) && std::isfinite(corr960),
+                "V2 Width correlation remains finite across sample rates", failures);
+
         auto realtimeRender=render(48000.0,1.5,0.7f,0.12f,0.5f,false,true,127,
                                    0.73f,0.82f,0.61f,0.44f,0.19f,0.77f,0.58f,
                                    1.0f,0.82f,1.f,kRealtime);
