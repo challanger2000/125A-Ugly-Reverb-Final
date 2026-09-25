@@ -25,7 +25,7 @@
 - **Clang** - hebt ausgewählte Moden an und macht das Klingeln absichtlich deutlicher hörbar.
 - **Rattle** - fügt kontrollierte mechanische Modulation zu ausgewählten Resonanzen hinzu.
 - **Digital Color** - Clean / 12-bit / 8-bit Quantisierung innerhalb des Feedback-Netzwerks.
-- **Mix** - linearer Dry/Wet-Mix.
+- **Mix** - linearer Dry/Wet-Mix. 0 % ist nur Dry; 100 % ist reines Wet ohne Dry-Anteil.
 - **Output** - -12 dB bis +12 dB.
 - **Bypass** - exakter Plugin-Bypass.
 
@@ -35,7 +35,7 @@
 - Stereo In / Stereo Out
 - 32-bit Float Processing
 - 0 Samples gemeldete Latenz
-- 150 Sekunden gemeldete Reverb-Tail
+- konservativ 300 Sekunden gemeldete Reverb-Tail
 - sample-genaue Parameter-Automation
 - versionierter Component-State mit Migration aus dem früheren State-Format
 - GUI-Zoom 100 / 125 / 150 / 175 / 200 Prozent
@@ -52,15 +52,9 @@ Metal, Clang und Rattle sind Bestandteile des Hallnetzwerks selbst und keine ein
 - **Lo-fi:** Digital Color auf 12-bit oder 8-bit stellen. Die Quantisierung sitzt im Feedback-Netzwerk und beeinflusst deshalb die Hallfahne selbst.
 - **Größe:** Size und Body greifen in die Resonanzstruktur ein; extreme Werte können bewusst stark metallische Ergebnisse erzeugen.
 
-## Finale Validierung
+## V2-Validierungsstatus
 
-- GitHub Actions Build #67: SUCCESS
-- DSP Measurement Suite: PASS
-- Steinberg VST3 Validator: 47/47 PASS
-- Canonical VST3 Package Validation: PASS
-- Reload/Lifecycle Diagnostic: 5/5 PASS
-- 125A Plugin Tester: PASS
-- Project-owned Compiler Warnings: 0
+Der V2-Stand wird vollständig auf Code, DSP, Host-Compliance und Release-Paket geprüft. Finale Validierungsdaten werden erst nach erfolgreicher Prüfung des exakten Release-Kandidaten eingetragen.
 
 ## Lizenz
 
