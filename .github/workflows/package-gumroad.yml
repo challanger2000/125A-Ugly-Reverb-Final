@@ -36,7 +36,13 @@ jobs:
           $source = Get-ChildItem -Path build -Recurse -Directory -Filter "UglyReverb.vst3" | Select-Object -First 1
           if (-not $source) { throw "UglyReverb.vst3 bundle not found" }
 
-          $root = "release/125A_Ugly_Reverb_v0.1.0_Windows_x64"
+          $cmake = Get-Content CMakeLists.txt -Raw
+          if ($cmake -notmatch 'project\(UglyReverb VERSION ([0-9]+\.[0-9]+\.[0-9]+)') {
+            throw "Could not resolve UglyReverb version from CMakeLists.txt"
+          }
+          $version = $Matches[1]
+          $baseName = "125A_Ugly_Reverb_v${version}_Windows_x64"
+          $root = "release/$baseName"
           New-Item -ItemType Directory -Force -Path $root | Out-Null
 
           $plugin = Join-Path $root "125A Ugly Reverb.vst3"
@@ -58,12 +64,12 @@ jobs:
             "$hash  $rel"
           } | Set-Content -Encoding ascii "$root/SHA256SUMS.txt"
 
-          Compress-Archive -Path $root -DestinationPath release/125A_Ugly_Reverb_v0.1.0_Windows_x64_Gumroad.zip -CompressionLevel Optimal
+          Compress-Archive -Path $root -DestinationPath "release/${baseName}_Gumroad.zip" -CompressionLevel Optimal
 
       - name: Upload Gumroad package
         uses: actions/upload-artifact@v4
         with:
-          name: 125A_Ugly_Reverb_v0.1.0_Windows_x64_Gumroad
-          path: release/125A_Ugly_Reverb_v0.1.0_Windows_x64_Gumroad.zip
+          name: 125A_Ugly_Reverb_Windows_x64_Gumroad
+          path: release/125A_Ugly_Reverb_v*_Windows_x64_Gumroad.zip
           if-no-files-found: error
           retention-days: 7
