@@ -351,6 +351,8 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         consumeRemainingParameterPoints();
         return kResultOk;
     }
+    if (data.numInputs != 1 || data.numOutputs != 1)
+        return kResultFalse;
     if (data.symbolicSampleSize != kSample32)
         return kResultFalse;
 
@@ -362,7 +364,7 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
 
     auto** in = data.inputs[0].channelBuffers32;
     auto** out = data.outputs[0].channelBuffers32;
-    if (data.inputs[0].numChannels < 2 || data.outputs[0].numChannels < 2)
+    if (data.inputs[0].numChannels != 2 || data.outputs[0].numChannels != 2)
         return kResultFalse;
 
     // Steinberg permits actual channel sample pointers to be null for an
