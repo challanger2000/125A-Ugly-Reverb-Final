@@ -27,6 +27,11 @@ jobs:
         shell: pwsh
         run: |
           ctest --test-dir build -C Release --output-on-failure
+          $measure = Get-ChildItem -Path build -Recurse -File -Filter "UglyReverbMeasurements.exe" | Select-Object -First 1
+          if (-not $measure) { Write-Error "UglyReverbMeasurements.exe not found"; exit 1 }
+          Write-Host "----- Detailed Ugly Reverb DSP measurements -----"
+          & $measure.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Create canonical release package
         shell: pwsh
