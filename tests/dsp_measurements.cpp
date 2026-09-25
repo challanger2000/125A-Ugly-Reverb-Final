@@ -1820,6 +1820,68 @@ int main()
         require(bypass.left[0]==1.f && bypass.right[0]==1.f, "Bypass passes input sample exactly", failures);
         require(energy(bypass.left,1,bypass.left.size())==0.0, "Bypass adds no output tail", failures);
 
+        // Bypass must mute the wet path at the output without freezing or
+        // destroying the internal tank.  When bypass is released, a previously
+        // excited tail should still be present.
+        {
+            Processor bypassTail;
+            bypassTail.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=128;
+            setup.sampleRate=48000.0;
+            bypassTail.setupProcessing(setup);
+            bypassTail.setTestParameter(UglyReverb::kMix,1.f);
+            bypassTail.setTestParameter(UglyReverb::kPreDelay,0.f);
+            bypassTail.setActive(true);
+
+            float inL[128] {},inR[128] {},outL[128] {},outR[128] {};
+            float* inPtrs[2]={inL,inR}; float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            ProcessData data {};
+            data.processMode=kRealtime; data.symbolicSampleSize=kSample32; data.numSamples=128;
+            data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
+
+            inL[0]=1.f; inR[0]=1.f;
+            require(bypassTail.process(data)==kResultOk,
+                    "Bypass-tail probe excitation processes successfully",failures);
+
+            bypassTail.setTestParameter(UglyReverb::kBypass,1.f);
+            std::fill(std::begin(inL),std::end(inL),0.f);
+            std::fill(std::begin(inR),std::end(inR),0.f);
+            double bypassOutputEnergy=0.0;
+            for(int blockIndex=0;blockIndex<24;++blockIndex)
+            {
+                std::fill(std::begin(outL),std::end(outL),0.f);
+                std::fill(std::begin(outR),std::end(outR),0.f);
+                require(bypassTail.process(data)==kResultOk,
+                        "Bypassed tank continues processing",failures);
+                for(float v:outL) bypassOutputEnergy+=(double)v*(double)v;
+                for(float v:outR) bypassOutputEnergy+=(double)v*(double)v;
+            }
+            require(bypassOutputEnergy==0.0,
+                    "Bypass remains exact dry/silent for silent input while tank runs",failures);
+
+            bypassTail.setTestParameter(UglyReverb::kBypass,0.f);
+            double resumedTailEnergy=0.0;
+            for(int blockIndex=0;blockIndex<16 && resumedTailEnergy==0.0;++blockIndex)
+            {
+                std::fill(std::begin(outL),std::end(outL),0.f);
+                std::fill(std::begin(outR),std::end(outR),0.f);
+                require(bypassTail.process(data)==kResultOk,
+                        "Audio processes after bypass release",failures);
+                for(float v:outL) resumedTailEnergy+=(double)v*(double)v;
+                for(float v:outR) resumedTailEnergy+=(double)v*(double)v;
+            }
+            require(resumedTailEnergy>0.0,
+                    "Reverb tail survives bypass and resumes after release",failures);
+
+            bypassTail.setActive(false);
+            bypassTail.terminate();
+        }
+
         // Repeated-excitation pseudo-program fixture.  This complements impulse
         // responses by exercising spectral memory and overlapping reverb tails.
         auto programDefault=renderProgramFixture(48000.0,4.0,0.5f,0.48f,0.45f,0.68f,0.55f);
