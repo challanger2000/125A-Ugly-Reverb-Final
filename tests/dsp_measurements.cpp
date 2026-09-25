@@ -96,7 +96,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
                     bool bypass=false, bool impulse=true, int block=128, float decay=0.58f,
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
                     float rattle=0.12f, float diffusion=0.45f, float body=0.55f,
-                    float mix=1.f, float width=0.75f)
+                    float mix=1.f, float width=0.75f, float impulseAmplitude=1.f)
 {
     block = std::max(1, block);
     Processor p;
@@ -158,8 +158,8 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
         std::fill(outR.begin(),outR.end(),0.f);
         if (impulse && !sent)
         {
-            inL[0]=1.f;
-            inR[0]=1.f;
+            inL[0]=impulseAmplitude;
+            inR[0]=impulseAmplitude;
             sent=true;
         }
 
@@ -446,6 +446,18 @@ int main()
                 "V2 stereo tank correlation metrics remain finite", failures);
         require(widthDelta > 1e-4,
                 "V2 Width materially changes the internal tank response", failures);
+
+        // Subnormal hardening: an input far below the zap threshold must not
+        // seed a persistent feedback tail.
+        auto subnormalProbe=render(48000.0,0.8,0.5f,0.f,0.f,false,true,128,
+                                   0.95f,0.8f,0.7f,0.3f,0.1f,0.8f,0.55f,
+                                   1.0f,0.75f,1.0e-25f);
+        const double subnormalEnergy=energy(
+            subnormalProbe.left,0,subnormalProbe.left.size())
+            + energy(subnormalProbe.right,0,subnormalProbe.right.size());
+        std::cout << "[INFO] v2_subnormal_probe_energy=" << subnormalEnergy << "\n";
+        require(subnormalEnergy == 0.0,
+                "V2 subnormal input cannot seed a feedback tail", failures);
 
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
