@@ -895,6 +895,14 @@ int main()
         }
 
         {
+            Processor malformedBus;
+            malformedBus.initialize(nullptr);
+            require(malformedBus.setBusArrangements(nullptr,1,nullptr,1)==kResultFalse,
+                    "Malformed null bus-arrangement arrays fail cleanly", failures);
+            malformedBus.terminate();
+        }
+
+        {
             Processor invalidRate;
             invalidRate.initialize(nullptr);
             ProcessSetup bad {};
