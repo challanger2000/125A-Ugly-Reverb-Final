@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <new>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -128,7 +129,16 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& setup)
         return r;
 
     sampleRate_ = setup.sampleRate;
-    resetDsp();
+    dspReady_ = false;
+    try
+    {
+        resetDsp();
+    }
+    catch (const std::bad_alloc&)
+    {
+        return kResultFalse;
+    }
+    dspReady_ = true;
     return r;
 }
 
@@ -397,7 +407,7 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
     // A conforming host calls setupProcessing() before audio processing, but
     // malformed lifecycle order must fail cleanly rather than indexing empty
     // delay buffers.
-    if (preL_.empty() || preR_.empty())
+    if (!dspReady_ || preL_.empty() || preR_.empty())
     {
         consumeRemainingParameterPoints();
         return kResultFalse;
