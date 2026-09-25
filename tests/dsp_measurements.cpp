@@ -1192,6 +1192,49 @@ int main()
             malformed.terminate();
         }
 
+        // Runtime bus shape must match the declared single stereo in/out layout.
+        {
+            Processor shape;
+            shape.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=16;
+            setup.sampleRate=48000.0;
+            shape.setupProcessing(setup);
+            shape.setActive(true);
+
+            float a[16] {},b[16] {},c3[16] {},o0[16] {},o1[16] {},o2[16] {};
+            float* in3[3]={a,b,c3};
+            float* out3[3]={o0,o1,o2};
+            AudioBusBuffers inBus {}; inBus.numChannels=3; inBus.channelBuffers32=in3;
+            AudioBusBuffers outBus {}; outBus.numChannels=3; outBus.channelBuffers32=out3;
+            ProcessData data {};
+            data.processMode=kRealtime;
+            data.symbolicSampleSize=kSample32;
+            data.numSamples=16;
+            data.numInputs=1;
+            data.numOutputs=1;
+            data.inputs=&inBus;
+            data.outputs=&outBus;
+            require(shape.process(data)==kResultFalse,
+                    "Runtime rejects non-stereo channel counts",failures);
+
+            inBus.numChannels=2;
+            outBus.numChannels=2;
+            AudioBusBuffers inBuses[2]={inBus,inBus};
+            AudioBusBuffers outBuses[2]={outBus,outBus};
+            data.numInputs=2;
+            data.numOutputs=2;
+            data.inputs=inBuses;
+            data.outputs=outBuses;
+            require(shape.process(data)==kResultFalse,
+                    "Runtime rejects extra audio buses",failures);
+
+            shape.setActive(false);
+            shape.terminate();
+        }
+
         // Output silence flags must not retain a stale host-provided silent state
         // when the reverb writes valid audio.
         {
