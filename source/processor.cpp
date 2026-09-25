@@ -148,17 +148,16 @@ tresult PLUGIN_API Processor::setActive(TBool state)
 
 tresult PLUGIN_API Processor::setProcessing(TBool state)
 {
-    const auto r = AudioEffect::setProcessing(state);
-    if (r != kResultOk)
-        return r;
-
+    // AudioEffect::setProcessing() is intentionally kNotImplemented in the
+    // Steinberg base class. This processor owns the transition explicitly and
+    // acknowledges it with kResultOk.
     // Hosts may restart processing without another setActive() transition.
     // Clear existing buffers without reallocating: setProcessing() may be called
     // from the realtime thread.
     if (state)
         clearDsp();
 
-    return r;
+    return kResultOk;
 }
 
 uint32 PLUGIN_API Processor::getTailSamples()
