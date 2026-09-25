@@ -24,6 +24,13 @@ inline float clamp1(float x)
     return std::max(-1.f, std::min(1.f, x));
 }
 
+inline float zapTiny(float x)
+{
+    // Far below any audible level; prevents long feedback tails from entering
+    // subnormal arithmetic without adding dither/noise to silence.
+    return std::fabs(x) < 1.0e-20f ? 0.f : x;
+}
+
 inline float lerp(float a, float b, float t)
 {
     return a + (b - a) * t;
@@ -84,7 +91,7 @@ float Processor::DelayLine::read(float delaySamples) const
 void Processor::DelayLine::push(float x)
 {
     if (data.empty()) return;
-    data[(size_t)write] = x;
+    data[(size_t)write] = zapTiny(x);
     if (++write >= (int)data.size()) write = 0;
 }
 
@@ -611,8 +618,8 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
             const float yL = combL_[i].read(delayL);
             const float yR = combR_[i].read(delayR);
 
-            combL_[i].lp += dampingCoef * (yL - combL_[i].lp);
-            combR_[i].lp += dampingCoef * (yR - combR_[i].lp);
+            combL_[i].lp = zapTiny(combL_[i].lp + dampingCoef * (yL - combL_[i].lp));
+            combR_[i].lp = zapTiny(combR_[i].lp + dampingCoef * (yR - combR_[i].lp));
             filteredL[(size_t)i] = combL_[i].lp;
             filteredR[(size_t)i] = combR_[i].lp;
 
