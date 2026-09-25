@@ -29,7 +29,7 @@ The goal is not random bad sound. The goal is **controlled ugliness**: repeatabl
 
 ### MASTER
 
-- **Mix** — linear dry/wet balance.
+- **Mix** — linear dry/wet balance. 0% is dry only; 100% is pure wet with no dry contribution.
 - **Output** — -12 dB to +12 dB.
 - **Bypass** — exact plug-in bypass.
 
@@ -52,7 +52,7 @@ The selected zoom level is stored in the controller state. Knobs and the wear/gl
 - Stereo input / stereo output
 - 32-bit float audio processing
 - 0 samples reported processing latency
-- finite 150-second reported reverb tail
+- conservative 300-second reported reverb tail
 - sample-accurate parameter automation
 - versioned component state with migration from the earlier unversioned state format
 - realtime-safe processing restart reset
@@ -64,21 +64,9 @@ Metal, Clang and Rattle are part of the reverb network itself rather than simple
 
 The core combines material-specific comb and allpass structures, modal weighting, controlled feedback asymmetry, optional mechanical motion and optional in-loop digital quantization. At low character settings the result can still behave like a usable plate/chamber reverb; at high settings it intentionally becomes metallic, coarse and unstable.
 
-## Final validation
+## V2 validation status
 
-The approved Windows final candidate was frozen from GitHub Actions build **#67** in September 2026.
-
-Validation of that stand:
-
-- GitHub Actions build: **SUCCESS**
-- DSP measurement suite: **PASS**
-- Steinberg VST3 Validator: **47 tests passed / 0 failed**
-- canonical packaged VST3 validation: **PASS**
-- reload/lifecycle diagnostic: **5/5 cycles PASS**
-- 125A Plugin Tester: **PASS**
-- project-owned compiler warnings: **0**
-
-The final repository imported the approved code/resource tree byte-for-byte from the tested Development freeze before release-only documentation was added.
+The V2 branch is undergoing full code, DSP, host-compliance and release-package verification. Final release validation details will be written here only after the exact release candidate has passed the complete validation chain.
 
 ## Installation
 
