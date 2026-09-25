@@ -435,6 +435,10 @@ int main()
         require(std::isfinite(lowCrest) && std::isfinite(highCrest)
                 && std::isfinite(lowActive) && std::isfinite(highActive),
                 "V2 diffusion density metrics remain finite", failures);
+        require(highCrest < lowCrest * 0.75,
+                "V2 high Diffusion measurably lowers tail crest factor", failures);
+        require(highActive > lowActive * 1.15,
+                "V2 high Diffusion increases active-sample echo density", failures);
 
         auto scatterBlock1=render(48000.0,1.5,0.5f,0.f,0.f,false,true,1,
                                   0.72f,0.62f,0.42f,0.52f,0.08f,0.85f,0.55f);
@@ -582,7 +586,7 @@ int main()
         stateSetup.sampleRate = 48000.0;
         p.setupProcessing(stateSetup);
         require(p.getLatencySamples()==0, "Reported latency is 0 samples", failures);
-        require(p.getTailSamples()==7200000u, "Reported reverb tail is 150 seconds at 48 kHz", failures);
+        require(p.getTailSamples()==14400000u, "Reported reverb tail is 300 seconds at 48 kHz", failures);
 
         Steinberg::MemoryStream state;
         p.setTestParameter(UglyReverb::kDecay, 0.93f);
