@@ -225,7 +225,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
 
 RenderResult renderProgramFixture(double sr,double seconds,float material,float damping,
                                   float diffusion,float metal,float clang,float mix=1.f,
-                                  int block=128)
+                                  int block=128,float rattle=0.18f)
 {
     block=std::max(1,block);
     Processor p;
@@ -247,7 +247,7 @@ RenderResult renderProgramFixture(double sr,double seconds,float material,float 
     p.setTestParameter(UglyReverb::kDiffusion,diffusion);
     p.setTestParameter(UglyReverb::kMetal,metal);
     p.setTestParameter(UglyReverb::kClang,clang);
-    p.setTestParameter(UglyReverb::kRattle,0.18f);
+    p.setTestParameter(UglyReverb::kRattle,rattle);
     p.setTestParameter(UglyReverb::kBody,0.58f);
     p.setTestParameter(UglyReverb::kWidth,0.78f);
     p.setTestParameter(UglyReverb::kMix,mix);
@@ -928,6 +928,23 @@ int main()
                 "V2 Diffusion materially affects repeated-excitation program material", failures);
         require(programDefaultHF > programDarkHF * 1.10,
                 "V2 Damping darkens repeated-excitation program material", failures);
+
+        auto rattleOff=renderProgramFixture(48000.0,4.0,0.8f,0.42f,0.52f,0.82f,0.62f,
+                                            1.f,128,0.f);
+        auto rattleFullA=renderProgramFixture(48000.0,4.0,0.8f,0.42f,0.52f,0.82f,0.62f,
+                                              1.f,128,1.f);
+        auto rattleFullB=renderProgramFixture(48000.0,4.0,0.8f,0.42f,0.52f,0.82f,0.62f,
+                                              1.f,128,1.f);
+        const double rattleDelta=difference(rattleOff.left,rattleFullA.left);
+        const double rattleRepeatDelta=difference(rattleFullA.left,rattleFullB.left);
+        std::cout << "[INFO] v2_rattle_program_delta=" << rattleDelta
+                  << " repeat_delta=" << rattleRepeatDelta << "\n";
+        require(rattleDelta > 1e-4,
+                "V2 Rattle 100% materially changes repeated-excitation material", failures);
+        require(rattleRepeatDelta < 1e-8,
+                "V2 Rattle modulation remains deterministic", failures);
+        require(finiteBuffer(rattleFullA.left) && finiteBuffer(rattleFullA.right),
+                "V2 Rattle 100% remains finite on repeated excitation", failures);
 
         // CI timing is informational only because hosted-runner CPU allocation is
         // not deterministic.  Tracking the same render over time still exposes
