@@ -413,6 +413,36 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         0.72f,0.84f,0.62f,0.91f,0.88f,0.94f,0.96f,0.89f,0.82f,0.70f,0.64f
     };
 
+    // Deterministic sparse early-reflection fingerprints.  These are not a
+    // room simulator; they are intentionally irregular material exciters that
+    // increase onset density before the FDN tank while preserving repeatability.
+    static constexpr float earlyMs[kMaterials][6] = {
+        { 3.1f, 5.7f, 8.9f,12.8f,17.6f,23.4f}, // Plate
+        { 2.2f, 4.1f, 6.8f,10.1f,14.7f,20.9f}, // Thin Plate
+        { 4.0f, 7.3f,11.2f,16.0f,22.1f,29.8f}, // Heavy Plate
+        { 1.8f, 3.6f, 5.9f, 8.7f,12.9f,18.8f}, // Sheet
+        { 2.5f, 4.8f, 7.7f,11.5f,16.3f,22.7f}, // Spring
+        { 2.9f, 5.2f, 8.4f,12.1f,16.9f,23.8f}, // Steel
+        { 3.6f, 6.4f,10.5f,15.7f,22.8f,31.6f}, // Pipe
+        { 4.4f, 7.9f,12.7f,18.8f,26.4f,35.7f}, // Metal Drum
+        { 3.0f, 5.6f, 9.1f,13.8f,20.0f,28.2f}, // Oil Can
+        { 4.8f, 8.6f,13.4f,19.7f,27.0f,36.1f}, // Chamber
+        { 5.5f, 9.7f,14.9f,21.6f,29.4f,39.8f}  // Tank
+    };
+    static constexpr float earlySign[kMaterials][6] = {
+        { 1.f,-1.f, 1.f, 1.f,-1.f, 1.f},
+        { 1.f, 1.f,-1.f, 1.f,-1.f,-1.f},
+        {-1.f, 1.f, 1.f,-1.f, 1.f, 1.f},
+        { 1.f,-1.f,-1.f, 1.f, 1.f,-1.f},
+        { 1.f,-1.f, 1.f,-1.f, 1.f,-1.f},
+        {-1.f, 1.f,-1.f, 1.f, 1.f,-1.f},
+        { 1.f, 1.f,-1.f,-1.f, 1.f,-1.f},
+        {-1.f, 1.f, 1.f,-1.f,-1.f, 1.f},
+        { 1.f,-1.f, 1.f, 1.f,-1.f,-1.f},
+        {-1.f,-1.f, 1.f,-1.f, 1.f, 1.f},
+        { 1.f,-1.f,-1.f, 1.f,-1.f, 1.f}
+    };
+
     for (int32 s = 0; s < data.numSamples; ++s)
     {
         // Apply every automation point whose sample offset has been reached.
@@ -483,8 +513,31 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         // Old-style excitation: mostly mono, preserving the artificial "one box" feel.
         const float mono = 0.5f * (pL + pR);
         const float side = 0.5f * (pL - pR);
-        const float exciteL = mono + side * (0.10f + 0.22f * smWidth_);
-        const float exciteR = mono - side * (0.10f + 0.22f * smWidth_);
+        float exciteL = mono + side * (0.10f + 0.22f * smWidth_);
+        float exciteR = mono - side * (0.10f + 0.22f * smWidth_);
+
+        // V2 sparse onset cloud.  Read a handful of deterministic taps behind
+        // the selected pre-delay position.  Diffusion raises their contribution;
+        // Metal keeps them more exposed and less "polite".  No RNG is used, so
+        // renders remain bit-repeatable for the same host/sample-rate conditions.
+        float earlyL = 0.f;
+        float earlyR = 0.f;
+        const float earlyScale = 0.72f + 0.55f * smSize_;
+        for (int e = 0; e < 6; ++e)
+        {
+            int tap = pr0 - (int)std::lround(
+                earlyMs[mat][e] * earlyScale * 0.001f * (float)sampleRate_);
+            while (tap < 0) tap += (int)preL_.size();
+            const float weight = (0.22f - 0.022f * (float)e)
+                               * (0.45f + 0.55f * smDiffusion_);
+            const float sign = earlySign[mat][e];
+            earlyL += preL_[(size_t)tap] * weight * sign;
+            earlyR += preR_[(size_t)tap] * weight
+                    * earlySign[mat][5 - e];
+        }
+        const float earlyDrive = 0.42f + 0.30f * smMetal_;
+        exciteL += std::tanh(earlyL * earlyDrive);
+        exciteR += std::tanh(earlyR * earlyDrive);
 
         float combSumL = 0.f;
         float combSumR = 0.f;
