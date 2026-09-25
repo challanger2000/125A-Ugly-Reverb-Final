@@ -4,6 +4,7 @@
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/vsttypes.h"
+#include "public.sdk/source/common/memorystream.h"
 
 #include <filesystem>
 #include <iostream>
@@ -72,6 +73,38 @@ bool runCycle(const fs::path& pluginPath, int cycle)
                           << ": controller initialize returned " << controllerInit << "\n";
                 return false;
             }
+
+            // Verify the real packaged component state can be handed to the
+            // real packaged controller before any editor is created.
+            Steinberg::MemoryStream componentState;
+            if (component->getState(&componentState) != kResultOk) {
+                controller->terminate();
+                component->terminate();
+                std::cerr << "[FAIL] cycle " << cycle
+                          << ": component getState failed\n";
+                return false;
+            }
+            componentState.seek(0, Steinberg::IBStream::kIBSeekSet, nullptr);
+            if (controller->setComponentState(&componentState) != kResultOk) {
+                controller->terminate();
+                component->terminate();
+                std::cerr << "[FAIL] cycle " << cycle
+                          << ": controller setComponentState failed\n";
+                return false;
+            }
+
+            // Exercise editor object construction/destruction on the exact
+            // packaged plug-in. Attaching to a native window is covered by the
+            // dedicated host/editor QA, but create/release must already be safe.
+            IPlugView* view = controller->createView(ViewType::kEditor);
+            if (!view) {
+                controller->terminate();
+                component->terminate();
+                std::cerr << "[FAIL] cycle " << cycle
+                          << ": editor creation failed\n";
+                return false;
+            }
+            view->release();
 
             const auto controllerTerm = controller->terminate();
             if (controllerTerm != kResultOk) {
