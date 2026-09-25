@@ -1043,6 +1043,39 @@ int main()
             malformed.terminate();
         }
 
+        // Output silence flags must not retain a stale host-provided silent state
+        // when the reverb writes valid audio.
+        {
+            Processor silenceFlags;
+            silenceFlags.initialize(nullptr);
+            ProcessSetup setup {};
+            setup.processMode=kRealtime;
+            setup.symbolicSampleSize=kSample32;
+            setup.maxSamplesPerBlock=128;
+            setup.sampleRate=48000.0;
+            silenceFlags.setupProcessing(setup);
+            silenceFlags.setTestParameter(UglyReverb::kMix,1.f);
+            silenceFlags.setTestParameter(UglyReverb::kPreDelay,0.f);
+            silenceFlags.setActive(true);
+
+            float inL[128] {},inR[128] {},outL[128] {},outR[128] {};
+            inL[0]=1.f; inR[0]=1.f;
+            float* inPtrs[2]={inL,inR}; float* outPtrs[2]={outL,outR};
+            AudioBusBuffers inBus {}; inBus.numChannels=2; inBus.channelBuffers32=inPtrs;
+            AudioBusBuffers outBus {}; outBus.numChannels=2; outBus.channelBuffers32=outPtrs;
+            outBus.silenceFlags=3;
+            ProcessData data {};
+            data.processMode=kRealtime; data.symbolicSampleSize=kSample32; data.numSamples=128;
+            data.numInputs=1; data.numOutputs=1; data.inputs=&inBus; data.outputs=&outBus;
+            require(silenceFlags.process(data)==kResultOk,
+                    "V2 silence-flag probe processes successfully", failures);
+            require(outBus.silenceFlags==0,
+                    "V2 clears stale output silence flags when writing reverb audio", failures);
+
+            silenceFlags.setActive(false);
+            silenceFlags.terminate();
+        }
+
         // An inactive VST3 input bus may expose null channel sample pointers.
         // The reverb must treat this as silence and continue an existing tail
         // into an active output bus without crashing.
