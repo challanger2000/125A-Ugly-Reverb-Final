@@ -683,7 +683,7 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
             {
                 phase += step;
                 if (phase >= 2.f * kPi)
-                    phase -= 2.f * kPi;
+                    phase = std::fmod(phase, 2.f * kPi);
             };
             advancePhase(rattlePhase_[i], baseStep);
             advancePhase(rattlePhase2_[i], baseStep * 2.7f);
