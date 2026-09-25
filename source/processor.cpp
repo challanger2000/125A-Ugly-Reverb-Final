@@ -583,7 +583,10 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         const float sizeScale = 0.58f + smSize_ * 1.22f;
         const float bodySkew = 0.82f + smBody_ * 0.36f;
         const float rt60 = 0.45f * std::pow(28.f, smDecay_) * rt60Scale[mat];
-        const float dampingCoef = 0.10f + (1.f - smDamping_) * 0.82f;
+        // Keep DAMPING strong at 100%, but avoid collapsing the tank into an
+        // almost HF-dead state.  V2 uses a shallower one-pole range and leaves
+        // material HF retention to do the finer spectral shaping.
+        const float dampingCoef = 0.24f + (1.f - smDamping_) * 0.68f;
 
         std::array<float, kCombs> filteredL {};
         std::array<float, kCombs> filteredR {};
