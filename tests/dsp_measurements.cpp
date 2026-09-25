@@ -93,6 +93,38 @@ double normalizedCorrelation(const std::vector<float>& a,const std::vector<float
     return denom>0.0?ab/denom:0.0;
 }
 
+double crestFactor(const std::vector<float>& x,size_t start,size_t end)
+{
+    end=std::min(end,x.size());
+    start=std::min(start,end);
+    if(end<=start) return 0.0;
+    double peak=0.0;
+    double sumSq=0.0;
+    for(size_t i=start;i<end;++i)
+    {
+        const double a=std::fabs((double)x[i]);
+        peak=std::max(peak,a);
+        sumSq+=(double)x[i]*(double)x[i];
+    }
+    const double rms=std::sqrt(sumSq/(double)(end-start));
+    return rms>1e-20?peak/rms:0.0;
+}
+
+double activeSampleFraction(const std::vector<float>& x,size_t start,size_t end,double relativeThreshold)
+{
+    end=std::min(end,x.size());
+    start=std::min(start,end);
+    if(end<=start) return 0.0;
+    double rms=0.0;
+    for(size_t i=start;i<end;++i) rms+=(double)x[i]*(double)x[i];
+    rms=std::sqrt(rms/(double)(end-start));
+    const double threshold=rms*relativeThreshold;
+    size_t active=0;
+    for(size_t i=start;i<end;++i)
+        if(std::fabs((double)x[i])>=threshold) ++active;
+    return (double)active/(double)(end-start);
+}
+
 RenderResult render(double sr, double seconds, float material, float preDelay, float digital,
                     bool bypass=false, bool impulse=true, int block=128, float decay=0.58f,
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
@@ -389,6 +421,20 @@ int main()
                 "V2 Diffusion/scattering materially changes the tank response", failures);
         require(finiteBuffer(lowScatter.left) && finiteBuffer(highScatter.left),
                 "V2 feedback scattering remains finite", failures);
+
+        const size_t densityStart=(size_t)(48000.0*0.20);
+        const size_t densityEnd=(size_t)(48000.0*1.20);
+        const double lowCrest=crestFactor(lowScatter.left,densityStart,densityEnd);
+        const double highCrest=crestFactor(highScatter.left,densityStart,densityEnd);
+        const double lowActive=activeSampleFraction(lowScatter.left,densityStart,densityEnd,0.35);
+        const double highActive=activeSampleFraction(highScatter.left,densityStart,densityEnd,0.35);
+        std::cout << "[INFO] v2_diffusion_density_low_crest=" << lowCrest
+                  << " high_crest=" << highCrest
+                  << " low_active=" << lowActive
+                  << " high_active=" << highActive << "\n";
+        require(std::isfinite(lowCrest) && std::isfinite(highCrest)
+                && std::isfinite(lowActive) && std::isfinite(highActive),
+                "V2 diffusion density metrics remain finite", failures);
 
         auto scatterBlock1=render(48000.0,1.5,0.5f,0.f,0.f,false,true,1,
                                   0.72f,0.62f,0.42f,0.52f,0.08f,0.85f,0.55f);
