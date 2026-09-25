@@ -4,6 +4,7 @@
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/vsttypes.h"
+#include "pluginterfaces/gui/iplugview.h"
 #include "public.sdk/source/common/memorystream.h"
 
 #include <filesystem>
