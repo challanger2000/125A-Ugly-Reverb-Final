@@ -1659,6 +1659,31 @@ int main()
         require(finiteBuffer(rattleFullA.left) && finiteBuffer(rattleFullA.right),
                 "V2 Rattle 100% remains finite on repeated excitation", failures);
 
+        // Long deterministic modulation probe crosses multiple oscillator wraps.
+        // Log late-tail sample-step statistics so phase-wrap regressions become
+        // visible without inventing a brittle absolute audio threshold up front.
+        auto motionProbe=render(48000.0,12.0,0.8f,0.f,0.f,false,true,127,
+                                0.82f,1.f,0.72f,0.30f,1.f,0.52f,0.62f,
+                                1.f,0.82f,1.f,kRealtime,0.55f,0.5f);
+        double motionStepSq=0.0;
+        double motionMaxStep=0.0;
+        size_t motionStepCount=0;
+        const size_t motionStart=(size_t)(48000.0*1.0);
+        for(size_t i=std::max<size_t>(motionStart,1);i<motionProbe.left.size();++i)
+        {
+            const double d=(double)motionProbe.left[i]-(double)motionProbe.left[i-1];
+            motionStepSq+=d*d;
+            motionMaxStep=std::max(motionMaxStep,std::fabs(d));
+            ++motionStepCount;
+        }
+        const double motionStepRms=motionStepCount
+            ? std::sqrt(motionStepSq/(double)motionStepCount) : 0.0;
+        std::cout << "[INFO] v2_motion_step_rms=" << motionStepRms
+                  << " max=" << motionMaxStep
+                  << " ratio=" << (motionStepRms>0.0?motionMaxStep/motionStepRms:0.0) << "\n";
+        require(finiteBuffer(motionProbe.left) && finiteBuffer(motionProbe.right),
+                "V2 long modulation probe remains finite across phase wraps",failures);
+
         // CI timing is informational only because hosted-runner CPU allocation is
         // not deterministic.  Tracking the same render over time still exposes
         // large V2 performance regressions without turning noisy timing into a gate.
