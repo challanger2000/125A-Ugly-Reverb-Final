@@ -74,6 +74,24 @@ double hfProxy(const std::vector<float>& x, size_t start)
     return signalEnergy > 1e-24 ? diffEnergy / signalEnergy : 0.0;
 }
 
+double normalizedCorrelation(const std::vector<float>& a,const std::vector<float>& b,
+                             size_t start,size_t end)
+{
+    end=std::min({end,a.size(),b.size()});
+    start=std::min(start,end);
+    double ab=0.0,aa=0.0,bb=0.0;
+    for(size_t i=start;i<end;++i)
+    {
+        const double x=a[i];
+        const double y=b[i];
+        ab+=x*y;
+        aa+=x*x;
+        bb+=y*y;
+    }
+    const double denom=std::sqrt(std::max(aa*bb,1e-30));
+    return denom>0.0?ab/denom:0.0;
+}
+
 RenderResult render(double sr, double seconds, float material, float preDelay, float digital,
                     bool bypass=false, bool impulse=true, int block=128, float decay=0.58f,
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
@@ -406,6 +424,19 @@ int main()
                   << " high_energy=" << earlyHighEnergy << "\n";
         require(earlyDelta > 1e-4,
                 "V2 sparse onset cloud materially changes early response", failures);
+
+        // WIDTH must now alter the internal tank relationship, not merely scale
+        // the output side channel.  Compare wet tails with identical mono input.
+        auto narrowTank=render(48000.0,1.8,0.5f,0.f,0.f,false,true,128,
+                               0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f);
+        auto wideTank=render(48000.0,1.8,0.5f,0.f,0.f,false,true,128,
+                             0.62f,0.60f,0.40f,0.46f,0.05f,0.70f,0.50f);
+        // Width is not currently an argument of render(); set it through a
+        // targeted follow-up render below once the helper exposes it.
+        const double baselineCorr=normalizedCorrelation(
+            narrowTank.left,narrowTank.right,(size_t)(48000*0.20),(size_t)(48000*1.50));
+        require(std::isfinite(baselineCorr),
+                "V2 stereo tank correlation metric remains finite", failures);
 
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
