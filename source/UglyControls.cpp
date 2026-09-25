@@ -329,9 +329,10 @@ VSTGUI::CMultiFrameBitmap* createKnobStripForSize(int logicalSize)
 }
 } // namespace
 
-UglyKnob::UglyKnob(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag)
+UglyKnob::UglyKnob(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag,float defaultValue)
 : VSTGUI::CKnobBase(r,l,tag,nullptr)
 {
+    setDefaultValue(defaultValue);
     knobPixels_=static_cast<int>(std::lround(std::min(r.getWidth(),r.getHeight())));
     strip_=createKnobStripForSize(knobPixels_);
     setTransparency(true);
@@ -360,10 +361,25 @@ void UglyKnob::draw(VSTGUI::CDrawContext* c)
     setDirty(false);
 }
 
+VSTGUI::CMouseEventResult UglyKnob::onMouseDown(
+    VSTGUI::CPoint& where,const VSTGUI::CButtonState& buttons)
+{
+    if(buttons.isLeftButton() && buttons.isControlSet() && getViewSize().pointInside(where)) {
+        beginEdit();
+        setValue(getDefaultValue());
+        valueChanged();
+        endEdit();
+        invalid();
+        return VSTGUI::kMouseDownEventHandledButDontNeedMovedOrUpEvents;
+    }
+    return VSTGUI::CKnobBase::onMouseDown(where,buttons);
+}
+
 UglySelector::UglySelector(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag,
-                           std::vector<std::string> labels)
+                           std::vector<std::string> labels,float defaultValue)
 : VSTGUI::CControl(r,l,tag,nullptr),labels_(std::move(labels))
 {
+    setDefaultValue(defaultValue);
     setTransparency(true);
     setWantsFocus(true);
 }
@@ -415,6 +431,14 @@ VSTGUI::CMouseEventResult UglySelector::onMouseDown(VSTGUI::CPoint& where,
     if(!buttons.isLeftButton()||labels_.empty())
         return VSTGUI::kMouseEventNotHandled;
     const auto r=getViewSize();
+    if(buttons.isControlSet() && r.pointInside(where)) {
+        beginEdit();
+        setValue(getDefaultValue());
+        valueChanged();
+        endEdit();
+        invalid();
+        return VSTGUI::kMouseDownEventHandledButDontNeedMovedOrUpEvents;
+    }
     if(!r.pointInside(where))
         return VSTGUI::kMouseEventNotHandled;
 
@@ -431,9 +455,10 @@ VSTGUI::CMouseEventResult UglySelector::onMouseDown(VSTGUI::CPoint& where,
     return VSTGUI::kMouseDownEventHandledButDontNeedMovedOrUpEvents;
 }
 
-UglyToggle::UglyToggle(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag)
+UglyToggle::UglyToggle(const VSTGUI::CRect& r,VSTGUI::IControlListener* l,int32_t tag,float defaultValue)
 : VSTGUI::COnOffButton(r,l,tag,nullptr)
 {
+    setDefaultValue(defaultValue);
     setTransparency(true);
     setWantsFocus(true);
 }
@@ -482,6 +507,20 @@ void UglyToggle::draw(VSTGUI::CDrawContext* c)
     else textRect.left=thumb.right+1.0;
     c->drawString(VSTGUI::UTF8String(on?"ON":"OFF"),textRect,VSTGUI::kCenterText);
     setDirty(false);
+}
+
+VSTGUI::CMouseEventResult UglyToggle::onMouseDown(
+    VSTGUI::CPoint& where,const VSTGUI::CButtonState& buttons)
+{
+    if(buttons.isLeftButton() && buttons.isControlSet() && getViewSize().pointInside(where)) {
+        beginEdit();
+        setValue(getDefaultValue());
+        valueChanged();
+        endEdit();
+        invalid();
+        return VSTGUI::kMouseDownEventHandledButDontNeedMovedOrUpEvents;
+    }
+    return VSTGUI::COnOffButton::onMouseDown(where,buttons);
 }
 
 UglyZoomControl::UglyZoomControl(const VSTGUI::CRect& r,VSTGUI::VST3Editor* editor,int* zoomIndex)
