@@ -240,6 +240,8 @@ float Processor::processAllpass(DelayLine& line, float input, float delaySamples
 
 void Processor::applyParameter(ParamID id, float value)
 {
+    if (!std::isfinite(value))
+        return;
     const float f = std::max(0.f, std::min(1.f, value));
     switch (id)
     {
