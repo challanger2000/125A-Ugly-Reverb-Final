@@ -49,6 +49,10 @@ bool runCycle(const fs::path& pluginPath, int cycle)
         TUID controllerCID {};
         const bool hasControllerCID =
             component->getControllerClassId(controllerCID) == kResultTrue;
+        if (!hasControllerCID) {
+            std::cerr << "[FAIL] cycle " << cycle << ": component has no controller class ID\n";
+            return false;
+        }
 
         const auto componentInit = component->initialize(hostContext);
         if (componentInit != kResultOk) {
@@ -123,8 +127,9 @@ bool runCycle(const fs::path& pluginPath, int cycle)
         }
     }
 
-    if (audioClasses == 0) {
-        std::cerr << "[FAIL] cycle " << cycle << ": no supported audio class\n";
+    if (audioClasses != 1) {
+        std::cerr << "[FAIL] cycle " << cycle << ": expected exactly one audio class, found "
+                  << audioClasses << "\n";
         return false;
     }
 
