@@ -129,7 +129,8 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
                     bool bypass=false, bool impulse=true, int block=128, float decay=0.58f,
                     float metal=0.68f, float clang=0.55f, float damping=0.48f,
                     float rattle=0.12f, float diffusion=0.45f, float body=0.55f,
-                    float mix=1.f, float width=0.75f, float impulseAmplitude=1.f)
+                    float mix=1.f, float width=0.75f, float impulseAmplitude=1.f,
+                    Steinberg::Vst::ProcessModes processMode=kRealtime)
 {
     block = std::max(1, block);
     Processor p;
@@ -137,7 +138,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
         throw std::runtime_error("Processor initialize failed");
 
     ProcessSetup setup {};
-    setup.processMode = kRealtime;
+    setup.processMode = processMode;
     setup.symbolicSampleSize = kSample32;
     setup.maxSamplesPerBlock = block;
     setup.sampleRate = sr;
@@ -197,7 +198,7 @@ RenderResult render(double sr, double seconds, float material, float preDelay, f
         }
 
         ProcessData data {};
-        data.processMode=kRealtime;
+        data.processMode=processMode;
         data.symbolicSampleSize=kSample32;
         data.numSamples=n;
         data.numInputs=1;
@@ -516,6 +517,17 @@ int main()
                 "V2 Width 100% decorrelates the wet tank versus Width 0%", failures);
         require(widthDelta > 1e-4,
                 "V2 Width materially changes the internal tank response", failures);
+
+        auto realtimeRender=render(48000.0,1.5,0.7f,0.12f,0.5f,false,true,127,
+                                   0.73f,0.82f,0.61f,0.44f,0.19f,0.77f,0.58f,
+                                   1.0f,0.82f,1.f,kRealtime);
+        auto offlineRender=render(48000.0,1.5,0.7f,0.12f,0.5f,false,true,127,
+                                  0.73f,0.82f,0.61f,0.44f,0.19f,0.77f,0.58f,
+                                  1.0f,0.82f,1.f,kOffline);
+        const double offlineDelta=difference(realtimeRender.left,offlineRender.left);
+        std::cout << "[INFO] v2_offline_realtime_delta=" << offlineDelta << "\n";
+        require(offlineDelta < 1e-7,
+                "V2 offline and realtime renders are deterministic matches", failures);
 
         // Subnormal hardening: an input far below the zap threshold must not
         // seed a persistent feedback tail.
