@@ -67,6 +67,13 @@ jobs:
           Copy-Item README.md, LICENSE.txt, INSTALL_DE.txt, INSTALL_EN.txt -Destination $root
           Copy-Item docs/Ugly_Reverb_Handbuch_DE.pdf, docs/Ugly_Reverb_Manual_EN.pdf -Destination $root
 
+          $presetSource = "Factory Presets"
+          $presetDest = Join-Path $root "Factory Presets"
+          if (-not (Test-Path $presetSource -PathType Container)) { throw "Factory Presets folder missing" }
+          Copy-Item -Path $presetSource -Destination $presetDest -Recurse -Force
+          $presetCount = @(Get-ChildItem -Path $presetDest -File -Filter "*.vstpreset").Count
+          if ($presetCount -ne 16) { throw "Expected 16 factory presets, found $presetCount" }
+
           Get-ChildItem $root -Recurse -File | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
             $rel = $_.FullName.Substring((Resolve-Path $root).Path.Length + 1).Replace('\','/')
@@ -92,33 +99,7 @@ jobs:
           if (-not (Test-Path $sums)) { throw "SHA256SUMS.txt missing from expanded ZIP" }
 
           foreach ($line in Get-Content $sums) {
-            if ($line -notmatch '^([0-9a-f]{64})  (.+)        shell: pwsh
-        run: |
-          $plugin = Get-ChildItem -Path $env:VERIFIED_PACKAGE_ROOT -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
-          $validator = Get-ChildItem -Path build -Recurse -File -Filter "validator.exe" | Select-Object -First 1
-          if (-not $plugin) { throw "Packaged VST3 not found" }
-          if (-not $validator) { throw "validator.exe not found" }
-          & $validator.FullName $plugin.FullName
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Reload lifecycle diagnostic on packaged VST3
-        shell: pwsh
-        run: |
-          $plugin = Get-ChildItem -Path $env:VERIFIED_PACKAGE_ROOT -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
-          $probe = Get-ChildItem -Path build -Recurse -File -Filter "UglyReverbReloadProbe.exe" | Select-Object -First 1
-          if (-not $plugin) { throw "Packaged VST3 not found" }
-          if (-not $probe) { throw "UglyReverbReloadProbe.exe not found" }
-          & $probe.FullName $plugin.FullName
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Upload Gumroad package
-        uses: actions/upload-artifact@v4
-        with:
-          name: 125A_Ugly_Reverb_Windows_x64_Gumroad
-          path: release/125A_Ugly_Reverb_v*_Windows_x64_Gumroad.zip
-          if-no-files-found: error
-          retention-days: 7
-) { throw "Malformed checksum line: $line" }
+            if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "Malformed checksum line: $line" }
             $expected = $Matches[1]
             $relative = $Matches[2].Replace('/','\')
             $file = Join-Path $packageRoot.FullName $relative
@@ -127,22 +108,42 @@ jobs:
             if ($actual -ne $expected) { throw "Checksum mismatch: $relative" }
           }
 
+          $required = @(
+            "125A Ugly Reverb.vst3",
+            "README.md",
+            "LICENSE.txt",
+            "INSTALL_DE.txt",
+            "INSTALL_EN.txt",
+            "Ugly_Reverb_Handbuch_DE.pdf",
+            "Ugly_Reverb_Manual_EN.pdf",
+            "Factory Presets",
+            "SHA256SUMS.txt"
+          )
+          foreach ($name in $required) {
+            if (-not (Test-Path (Join-Path $packageRoot.FullName $name))) {
+              throw "Required package item missing: $name"
+            }
+          }
+
+          $presetCount = @(Get-ChildItem -Path (Join-Path $packageRoot.FullName "Factory Presets") -File -Filter "*.vstpreset").Count
+          if ($presetCount -ne 16) { throw "Expanded ZIP contains $presetCount factory presets, expected 16" }
+
           "VERIFIED_PACKAGE_ROOT=$($packageRoot.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Steinberg Validator on packaged VST3
+      - name: Steinberg Validator on verified packaged VST3
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem -Path release -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $plugin = Get-ChildItem -Path $env:VERIFIED_PACKAGE_ROOT -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
           $validator = Get-ChildItem -Path build -Recurse -File -Filter "validator.exe" | Select-Object -First 1
           if (-not $plugin) { throw "Packaged VST3 not found" }
           if (-not $validator) { throw "validator.exe not found" }
           & $validator.FullName $plugin.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Reload lifecycle diagnostic on packaged VST3
+      - name: Reload lifecycle diagnostic on verified packaged VST3
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem -Path release -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
+          $plugin = Get-ChildItem -Path $env:VERIFIED_PACKAGE_ROOT -Recurse -Directory -Filter "125A Ugly Reverb.vst3" | Select-Object -First 1
           $probe = Get-ChildItem -Path build -Recurse -File -Filter "UglyReverbReloadProbe.exe" | Select-Object -First 1
           if (-not $plugin) { throw "Packaged VST3 not found" }
           if (-not $probe) { throw "UglyReverbReloadProbe.exe not found" }
