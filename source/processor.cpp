@@ -116,9 +116,13 @@ tresult PLUGIN_API Processor::terminate()
 
 tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& setup)
 {
+    const auto r = AudioEffect::setupProcessing(setup);
+    if (r != kResultOk)
+        return r;
+
     sampleRate_ = setup.sampleRate > 1.0 ? setup.sampleRate : 44100.0;
     resetDsp();
-    return AudioEffect::setupProcessing(setup);
+    return r;
 }
 
 tresult PLUGIN_API Processor::setActive(TBool state)
@@ -129,14 +133,17 @@ tresult PLUGIN_API Processor::setActive(TBool state)
 
 tresult PLUGIN_API Processor::setProcessing(TBool state)
 {
+    const auto r = AudioEffect::setProcessing(state);
+    if (r != kResultOk && r != kResultTrue)
+        return r;
+
     // Hosts may restart processing without another setActive() transition.
     // Clear existing buffers without reallocating: setProcessing() may be called
     // from the realtime thread.
     if (state)
         clearDsp();
 
-    AudioEffect::setProcessing(state);
-    return kResultTrue;
+    return r;
 }
 
 uint32 PLUGIN_API Processor::getTailSamples()
@@ -335,8 +342,20 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
 
     auto** in = data.inputs[0].channelBuffers32;
     auto** out = data.outputs[0].channelBuffers32;
-    if (!in || !out || data.inputs[0].numChannels < 2 || data.outputs[0].numChannels < 2)
+    if (data.inputs[0].numChannels < 2 || data.outputs[0].numChannels < 2)
         return kResultFalse;
+
+    // Steinberg permits actual channel sample pointers to be null for an
+    // inactive bus. Treat an inactive input as silence so an existing reverb
+    // tail can continue. If the output bus itself is inactive there is nowhere
+    // to write audio; consume automation and return cleanly.
+    if (!out || !out[0] || !out[1])
+    {
+        consumeRemainingParameterPoints();
+        return kResultOk;
+    }
+    const float* inL = (in && in[0]) ? in[0] : nullptr;
+    const float* inR = (in && in[1]) ? in[1] : nullptr;
 
     const float smoothCoef = 1.f - std::exp(-1.f / std::max(1.f, 0.012f * (float)sampleRate_));
 
@@ -515,8 +534,8 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         const int mat = std::max(0, std::min(kMaterials - 1,
             (int)std::lround(material_ * (float)(kMaterials - 1))));
 
-        const float xL = in[0][s];
-        const float xR = in[1][s];
+        const float xL = inL ? inL[s] : 0.f;
+        const float xR = inR ? inR[s] : 0.f;
 
         smSize_ += smoothCoef * (size_ - smSize_);
         smDecay_ += smoothCoef * (decay_ - smDecay_);
