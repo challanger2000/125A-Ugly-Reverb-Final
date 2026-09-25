@@ -59,6 +59,31 @@ double difference(const std::vector<float>& a, const std::vector<float>& b)
     return d / std::max<size_t>(1,n);
 }
 
+double decayCrossingSeconds(const std::vector<float>& x,double sr,double fraction)
+{
+    if(x.empty() || sr<=0.0) return 0.0;
+    const size_t win=std::max<size_t>(1,(size_t)std::llround(sr*0.05));
+    double peak=0.0;
+    std::vector<double> powers;
+    for(size_t pos=0;pos<x.size();pos+=win)
+    {
+        const size_t end=std::min(x.size(),pos+win);
+        const double p=meanSquare(x,pos,end);
+        powers.push_back(p);
+        peak=std::max(peak,p);
+    }
+    if(peak<=1e-30) return 0.0;
+    const double target=peak*fraction;
+    for(size_t i=1;i<powers.size();++i)
+    {
+        bool staysBelow=true;
+        for(size_t j=i;j<powers.size();++j)
+            if(powers[j]>target) { staysBelow=false; break; }
+        if(staysBelow) return (double)(i*win)/sr;
+    }
+    return (double)x.size()/sr;
+}
+
 double hfProxy(const std::vector<float>& x, size_t start)
 {
     start = std::min(start, x.size());
@@ -463,14 +488,17 @@ int main()
         const double onset0Ms=1000.0*(double)firstAbove(pre0.left,1e-8)/48000.0;
         const double onset50Ms=1000.0*(double)firstAbove(pre50.left,1e-8)/48000.0;
         const double onset100Ms=1000.0*(double)firstAbove(pre100.left,1e-8)/48000.0;
+        const double shift50Ms=onset50Ms-onset0Ms;
+        const double shift100Ms=onset100Ms-onset0Ms;
         std::cout << "[INFO] v2_predelay_onset_ms="
-                  << onset0Ms << "," << onset50Ms << "," << onset100Ms << "\n";
+                  << onset0Ms << "," << onset50Ms << "," << onset100Ms
+                  << " shifts=" << shift50Ms << "," << shift100Ms << "\n";
         require(onset0Ms < 20.0,
                 "V2 PreDelay 0% starts the wet response promptly", failures);
-        require(onset50Ms > 80.0 && onset50Ms < 110.0,
-                "V2 PreDelay 50% maps near 90 ms", failures);
-        require(onset100Ms > 165.0 && onset100Ms < 200.0,
-                "V2 PreDelay 100% maps near 180 ms", failures);
+        require(shift50Ms > 88.0 && shift50Ms < 92.0,
+                "V2 PreDelay 50% adds about 90 ms", failures);
+        require(shift100Ms > 178.0 && shift100Ms < 182.0,
+                "V2 PreDelay 100% adds about 180 ms", failures);
 
         const float materialValues[] = {0.f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f,1.f};
         const char* materialNames[] = {"Plate","Thin Plate","Heavy Plate","Sheet","Spring","Steel",
@@ -534,8 +562,15 @@ int main()
         const double d50=energy(decay50.left,decayLateStart,decay50.left.size());
         const double d75=energy(decay75.left,decayLateStart,decay75.left.size());
         const double d100=energy(decay100.left,decayLateStart,decay100.left.size());
+        const double t25=decayCrossingSeconds(decay25.left,48000.0,1.0e-3);
+        const double t50=decayCrossingSeconds(decay50.left,48000.0,1.0e-3);
+        const double t75=decayCrossingSeconds(decay75.left,48000.0,1.0e-3);
+        const double t100=decayCrossingSeconds(decay100.left,48000.0,1.0e-3);
         std::cout << "[INFO] v2_decay_ladder="
-                  << d0 << "," << d25 << "," << d50 << "," << d75 << "," << d100 << "\n";
+                  << d0 << "," << d25 << "," << d50 << "," << d75 << "," << d100
+                  << " crossing_s=" << t25 << "," << t50 << "," << t75 << "," << t100 << "\n";
+        require(t50>t25 && t75>t50 && t100>=t75,
+                "V2 Decay increases measured tail duration through 25/50/75/100%", failures);
         require(d25>d0 && d50>d25 && d75>d50 && d100>d75,
                 "V2 Decay late-tail energy rises monotonically 0/25/50/75/100%", failures);
         require(d50>d25*1.5 && d75>d50*1.5,
