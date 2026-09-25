@@ -684,7 +684,15 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
             const float materialMotion = intrinsicMotion[mat] * (float)sampleRate_
                                * (std::sin(phase * motionRate[mat] + 0.37f * i)
                                + 0.23f * std::sin(phase * motionRate[mat] * 2.31f + i));
-            const float delayL = ms * 0.001f * (float)sampleRate_ + rattleJitter + materialMotion;
+
+            const float baseDelaySamples = ms * 0.001f * (float)sampleRate_;
+            // Keep extreme motion strong but away from the hard 1-sample read
+            // clamp.  Without this bound, very short Metal/Rattle paths can
+            // request negative delays at Size 0%.
+            const float motionLimit = baseDelaySamples * 0.65f;
+            const float motion = std::max(-motionLimit,
+                std::min(motionLimit, rattleJitter + materialMotion));
+            const float delayL = baseDelaySamples + motion;
             const float delayR = delayL + (17.f + 3.f * (float)i) * stereoTimeScale;
 
             const float yL = combL_[i].read(delayL);
