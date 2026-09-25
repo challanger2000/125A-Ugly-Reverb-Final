@@ -383,6 +383,30 @@ int main()
         require(finiteBuffer(openDamping.left) && finiteBuffer(closedDamping.left),
                 "V2 frequency-shaped damping remains finite", failures);
 
+        // V2 sparse early-reflection excitation must stay deterministic.  The
+        // topology intentionally uses fixed material fingerprints, never RNG.
+        auto earlyA=render(48000.0,1.2,0.3f,0.f,0.f,false,true,128,
+                           0.55f,0.58f,0.35f,0.42f,0.06f,0.92f,0.48f);
+        auto earlyB=render(48000.0,1.2,0.3f,0.f,0.f,false,true,128,
+                           0.55f,0.58f,0.35f,0.42f,0.06f,0.92f,0.48f);
+        require(difference(earlyA.left,earlyB.left) < 1e-8,
+                "V2 sparse early-reflection excitation is deterministic", failures);
+
+        auto earlyLow=render(48000.0,0.45,0.3f,0.f,0.f,false,true,128,
+                             0.42f,0.50f,0.28f,0.40f,0.02f,0.0f,0.50f);
+        auto earlyHigh=render(48000.0,0.45,0.3f,0.f,0.f,false,true,128,
+                              0.42f,0.50f,0.28f,0.40f,0.02f,1.0f,0.50f);
+        const size_t earlyStart=(size_t)(48000.0*0.015);
+        const size_t earlyEnd=(size_t)(48000.0*0.18);
+        const double earlyDelta=difference(earlyLow.left,earlyHigh.left);
+        const double earlyLowEnergy=energy(earlyLow.left,earlyStart,earlyEnd);
+        const double earlyHighEnergy=energy(earlyHigh.left,earlyStart,earlyEnd);
+        std::cout << "[INFO] v2_early_delta=" << earlyDelta
+                  << " low_energy=" << earlyLowEnergy
+                  << " high_energy=" << earlyHighEnergy << "\n";
+        require(earlyDelta > 1e-4,
+                "V2 sparse onset cloud materially changes early response", failures);
+
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
         auto mix0  = render(48000.0,2.0,0.f,0.f,0.f,false,true,128,0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,0.f);
