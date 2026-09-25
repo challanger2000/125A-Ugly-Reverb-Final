@@ -465,6 +465,20 @@ int main()
         require(subnormalEnergy == 0.0,
                 "V2 subnormal input cannot seed a feedback tail", failures);
 
+        // MIX semantics are strict: 100% means zero dry contribution and 0%
+        // means exact dry.  A non-zero pre-delay makes any leaked direct signal
+        // at sample zero immediately detectable.
+        auto wetPurity=render(48000.0,0.25,0.5f,0.5f,0.f,false,true,128,
+                              0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,
+                              1.0f,0.75f);
+        require(wetPurity.left[0] == 0.f && wetPurity.right[0] == 0.f,
+                "Mix 100% is pure wet with no dry leakage", failures);
+        auto dryPurity=render(48000.0,0.05,0.5f,0.5f,0.f,false,true,128,
+                              0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,
+                              0.0f,0.75f);
+        require(dryPurity.left[0] == 1.f && dryPurity.right[0] == 1.f,
+                "Mix 0% is exact dry at unity output", failures);
+
         // MIX calibration: dry must be exact at zero, and reverb-tail energy
         // must rise predictably through ordinary insert values.
         auto mix0  = render(48000.0,2.0,0.f,0.f,0.f,false,true,128,0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,0.f);
