@@ -481,6 +481,26 @@ int main()
         require(difference(legacyTank.left,materials[10].left) < 1e-7,
                 "Legacy Material 1.0 still resolves to Tank", failures);
 
+        auto sizeMin=render(48000.0,2.0,0.5f,0.f,0.f,false,true,128,
+                            0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,
+                            1.f,0.75f,1.f,kRealtime,0.f);
+        auto sizeMax=render(48000.0,2.0,0.5f,0.f,0.f,false,true,128,
+                            0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.55f,
+                            1.f,0.75f,1.f,kRealtime,1.f);
+        const double sizeDelta=difference(sizeMin.left,sizeMax.left);
+        std::cout << "[INFO] v2_size_delta=" << sizeDelta << "\n";
+        require(sizeDelta > 1e-4,
+                "V2 Size materially changes the reverb structure across its range", failures);
+
+        auto bodyMin=render(48000.0,2.0,0.5f,0.f,0.f,false,true,128,
+                            0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,0.f);
+        auto bodyMax=render(48000.0,2.0,0.5f,0.f,0.f,false,true,128,
+                            0.58f,0.68f,0.55f,0.48f,0.12f,0.45f,1.f);
+        const double bodyDelta=difference(bodyMin.left,bodyMax.left);
+        std::cout << "[INFO] v2_body_delta=" << bodyDelta << "\n";
+        require(bodyDelta > 1e-4,
+                "V2 Body materially changes the modal balance across its range", failures);
+
         auto shortDecay=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.15f);
         auto longDecay=render(48000.0,3.0,0.5f,0.f,0.f,false,true,128,0.90f);
         const double shortLate=energy(shortDecay.left,(size_t)(48000.0*1.5),shortDecay.left.size());
