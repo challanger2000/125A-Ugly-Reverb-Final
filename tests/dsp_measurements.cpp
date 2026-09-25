@@ -515,7 +515,7 @@ int main()
     int failures=0;
     try
     {
-        for(double sr : {44100.0,48000.0,96000.0})
+        for(double sr : {44100.0,48000.0,96000.0,192000.0})
         {
             auto r=render(sr,4.0,0.5f,0.f,0.f);
             require(finiteBuffer(r.left)&&finiteBuffer(r.right),
@@ -892,6 +892,22 @@ int main()
             auto r = render(48000.0, 1.5, 0.5f, 0.f, 0.f, false, true, block);
             require(finiteBuffer(r.left) && finiteBuffer(r.right),
                     "Finite output with block size " + std::to_string(block), failures);
+        }
+
+        {
+            Processor invalidRate;
+            invalidRate.initialize(nullptr);
+            ProcessSetup bad {};
+            bad.processMode=kRealtime;
+            bad.symbolicSampleSize=kSample32;
+            bad.maxSamplesPerBlock=128;
+            bad.sampleRate=std::numeric_limits<double>::infinity();
+            require(invalidRate.setupProcessing(bad)==kResultFalse,
+                    "Malformed infinite sample rate is rejected", failures);
+            bad.sampleRate=std::numeric_limits<double>::quiet_NaN();
+            require(invalidRate.setupProcessing(bad)==kResultFalse,
+                    "Malformed NaN sample rate is rejected", failures);
+            invalidRate.terminate();
         }
 
         Processor p;
