@@ -146,7 +146,7 @@ tresult PLUGIN_API Processor::setActive(TBool state)
 tresult PLUGIN_API Processor::setProcessing(TBool state)
 {
     const auto r = AudioEffect::setProcessing(state);
-    if (r != kResultOk && r != kResultTrue)
+    if (r != kResultOk)
         return r;
 
     // Hosts may restart processing without another setActive() transition.
@@ -178,6 +178,9 @@ tresult PLUGIN_API Processor::canProcessSampleSize(int32 symbolicSampleSize)
 tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement* inputs, int32 numIns,
                                                   SpeakerArrangement* outputs, int32 numOuts)
 {
+    if (!inputs || !outputs)
+        return kResultFalse;
+
     if (numIns == 1 && numOuts == 1 &&
         inputs[0] == SpeakerArr::kStereo && outputs[0] == SpeakerArr::kStereo)
         return AudioEffect::setBusArrangements(inputs, numIns, outputs, numOuts);
