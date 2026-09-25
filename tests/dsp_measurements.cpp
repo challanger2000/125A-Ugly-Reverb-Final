@@ -317,9 +317,20 @@ int main()
                                        "Pipe","Metal Drum","Oil Can","Chamber","Tank"};
         std::vector<RenderResult> materials;
         for (float m : materialValues) materials.push_back(render(48000.0,1.5,m,0.f,0.f));
+        double minAdjacentMaterialDelta=1.0e9;
+        double maxAdjacentMaterialDelta=0.0;
         for (int i=0;i<10;++i)
-            require(difference(materials[i].left,materials[i+1].left) > 1e-5,
+        {
+            const double d=difference(materials[i].left,materials[i+1].left);
+            minAdjacentMaterialDelta=std::min(minAdjacentMaterialDelta,d);
+            maxAdjacentMaterialDelta=std::max(maxAdjacentMaterialDelta,d);
+            std::cout << "[INFO] material_delta_" << materialNames[i]
+                      << "_to_" << materialNames[i+1] << "=" << d << "\n";
+            require(d > 1e-5,
                     std::string(materialNames[i])+" differs from "+materialNames[i+1], failures);
+        }
+        std::cout << "[INFO] material_delta_min=" << minAdjacentMaterialDelta
+                  << " max=" << maxAdjacentMaterialDelta << "\n";
 
         // Legacy anchors remain exact after expanding the stepped Material parameter.
         auto legacyPlate=render(48000.0,1.5,0.f,0.f,0.f);
@@ -450,6 +461,8 @@ int main()
                   << " delta=" << widthDelta << "\n";
         require(std::isfinite(narrowCorr) && std::isfinite(wideCorr),
                 "V2 stereo tank correlation metrics remain finite", failures);
+        require(wideCorr < narrowCorr * 0.90,
+                "V2 Width 100% decorrelates the wet tank versus Width 0%", failures);
         require(widthDelta > 1e-4,
                 "V2 Width materially changes the internal tank response", failures);
 
