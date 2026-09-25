@@ -327,6 +327,12 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
     if (data.symbolicSampleSize != kSample32)
         return kResultFalse;
 
+    // Defensive host-data validation before indexing the bus arrays.  A valid
+    // VST3 host supplies these when numInputs/numOutputs are positive, but a
+    // malformed call must fail cleanly instead of becoming a null dereference.
+    if (!data.inputs || !data.outputs)
+        return kResultFalse;
+
     auto** in = data.inputs[0].channelBuffers32;
     auto** out = data.outputs[0].channelBuffers32;
     if (!in || !out || data.inputs[0].numChannels < 2 || data.outputs[0].numChannels < 2)
