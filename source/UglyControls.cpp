@@ -1,4 +1,5 @@
 #include "UglyControls.h"
+#include "LicenseStatus.h"
 #include "branding_master.h"
 #include "vstgui/lib/cdrawcontext.h"
 #include "vstgui/lib/cbitmap.h"
@@ -240,6 +241,13 @@ void UglyFaceplate::draw(VSTGUI::CDrawContext* c)
     c->drawEllipse({r.right-13,r.top+7,r.right-7,r.top+13},VSTGUI::kDrawFilled);
     c->drawEllipse({r.left+7,r.bottom-13,r.left+13,r.bottom-7},VSTGUI::kDrawFilled);
     c->drawEllipse({r.right-13,r.bottom-13,r.right-7,r.bottom-7},VSTGUI::kDrawFilled);
+
+    static const bool demo=!Licensing::isLicensed();
+    if(demo) {
+        c->setFont(VSTGUI::kNormalFontSmall);
+        c->setFontColor({245,92,82,255});
+        c->drawString("DEMO",{r.right-82.0,r.top+18.0,r.right-18.0,r.top+40.0},VSTGUI::kRightText);
+    }
     setDirty(false);
 }
 
