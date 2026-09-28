@@ -1,6 +1,7 @@
 #pragma once
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
+#include "DemoGate.h"
 #include <array>
 #include <vector>
 
@@ -94,6 +95,8 @@ private:
     float smWidth_ = width_;
     float smMix_ = mix_;
     float smOutput_ = output_;
+    bool licensed_ = false;
+    DemoGate demoGate_ {};
 };
 
 } // namespace UglyReverb
