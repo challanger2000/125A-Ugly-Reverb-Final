@@ -1,4 +1,5 @@
 #include "processor.h"
+#include "LicenseStatus.h"
 #include "controller.h"
 #include "ids.h"
 #include "parameters.h"
@@ -107,6 +108,7 @@ tresult PLUGIN_API Processor::initialize(FUnknown* context)
     if (r != kResultOk) return r;
     addAudioInput(STR16("Stereo In"), SpeakerArr::kStereo);
     addAudioOutput(STR16("Stereo Out"), SpeakerArr::kStereo);
+    licensed_ = Licensing::isLicensed();
     return kResultOk;
 }
 
@@ -139,6 +141,7 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& setup)
         return kResultFalse;
     }
     dspReady_ = true;
+    demoGate_.configure(sampleRate_, licensed_);
     return r;
 }
 
@@ -884,6 +887,16 @@ tresult PLUGIN_API Processor::process(ProcessData& data)
         outputSilentR = outputSilentR && out[1][s] == 0.f;
     }
 
+    demoGate_.process(out, 2, data.numSamples);
+
+    // Derive the final silence state after the demo envelope.
+    outputSilentL = true;
+    outputSilentR = true;
+    for (int32 s = 0; s < data.numSamples; ++s) {
+        outputSilentL = outputSilentL && out[0][s] == 0.f;
+        outputSilentR = outputSilentR && out[1][s] == 0.f;
+    }
+    data.outputs[0].silenceFlags = 0;
     if (outputSilentL) data.outputs[0].silenceFlags |= 0x1u;
     if (outputSilentR) data.outputs[0].silenceFlags |= 0x2u;
 
