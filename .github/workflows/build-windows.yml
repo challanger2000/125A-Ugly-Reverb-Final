@@ -2,6 +2,8 @@ name: Build Windows VST3
 
 on:
   workflow_dispatch:
+  push:
+    branches: [Demo]
 
 jobs:
   build:
@@ -62,6 +64,12 @@ jobs:
           Write-Host "Canonical package: $dest"
           Write-Host "Canonical binary:  $newBinary"
 
+          New-Item -ItemType Directory -Force -Path packaged-full | Out-Null
+          Copy-Item -Path $dest -Destination packaged-full -Recurse -Force
+          $full = Join-Path (Resolve-Path packaged-full) "125A Ugly Reverb.vst3"
+          $fullResources = Join-Path $full "Contents\Resources"
+          Copy-Item "license\125A_Ugly_Reverb.license" (Join-Path $fullResources "125A_Ugly_Reverb.license") -Force
+
       - name: Steinberg Validator on canonical package
         shell: pwsh
         run: |
@@ -82,10 +90,18 @@ jobs:
           & $probe.FullName $plugin.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Upload VST3
+      - name: Upload DEMO VST3
         uses: actions/upload-artifact@v4
         with:
-          name: 125A-Ugly-Reverb-Windows-x64
+          name: 125A-Ugly-Reverb-V2-DEMO
           path: packaged/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload FULL VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A-Ugly-Reverb-V2-FULL
+          path: packaged-full/
           if-no-files-found: error
           retention-days: 7
