@@ -242,12 +242,36 @@ void UglyFaceplate::draw(VSTGUI::CDrawContext* c)
     c->drawEllipse({r.left+7,r.bottom-13,r.left+13,r.bottom-7},VSTGUI::kDrawFilled);
     c->drawEllipse({r.right-13,r.bottom-13,r.right-7,r.bottom-7},VSTGUI::kDrawFilled);
 
-    static const bool demo=!Licensing::isLicensed();
-    if(demo) {
-        c->setFont(VSTGUI::kNormalFontSmall);
-        c->setFontColor({245,92,82,255});
-        c->drawString("DEMO",{r.right-82.0,r.top+18.0,r.right-18.0,r.top+40.0},VSTGUI::kRightText);
+    setDirty(false);
+}
+
+UglyDemoBadge::UglyDemoBadge(const VSTGUI::CRect& r)
+: VSTGUI::CView(r), demo_(!Licensing::isLicensed())
+{
+    setMouseEnabled(false);
+    setTransparency(true);
+}
+
+UglyDemoBadge::UglyDemoBadge(const UglyDemoBadge& o)
+: VSTGUI::CView(o), demo_(o.demo_)
+{
+    setMouseEnabled(false);
+    setTransparency(true);
+}
+
+void UglyDemoBadge::draw(VSTGUI::CDrawContext* c)
+{
+    if(!demo_) {
+        setDirty(false);
+        return;
     }
+
+    const auto r=getViewSize();
+    c->setDrawMode(VSTGUI::kAntiAliasing|VSTGUI::kNonIntegralMode);
+    fillRound(c,r,5.0,{64,16,19,245},{245,92,82,255},1.0);
+    c->setFont(VSTGUI::kNormalFont,8.5,VSTGUI::kBoldFace);
+    c->setFontColor({255,230,226,255});
+    c->drawString(VSTGUI::UTF8String("DEMO"),r,VSTGUI::kCenterText);
     setDirty(false);
 }
 

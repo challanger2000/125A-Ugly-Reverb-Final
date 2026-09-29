@@ -18,6 +18,16 @@ public:
     void draw(VSTGUI::CDrawContext* c) override;
 };
 
+class UglyDemoBadge final : public VSTGUI::CView {
+public:
+    explicit UglyDemoBadge(const VSTGUI::CRect& r);
+    UglyDemoBadge(const UglyDemoBadge& o);
+    VSTGUI::CBaseObject* newCopy() const override { return new UglyDemoBadge(*this); }
+    void draw(VSTGUI::CDrawContext* c) override;
+private:
+    bool demo_ {true};
+};
+
 class UglyTextureOverlay final : public VSTGUI::CView {
 public:
     UglyTextureOverlay(const VSTGUI::CRect& r,const char* resourceName,float alpha=1.f);

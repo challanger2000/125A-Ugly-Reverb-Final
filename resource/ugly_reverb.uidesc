@@ -85,6 +85,7 @@
     <view back-color="Background" class="CTextLabel" font="~ NormalFontSmall" font-color="Text" frame-width="0" origin="647, 340" size="78, 17" title="Bypass" transparent="true" text-alignment="center"/>
     <view class="CView" custom-view-name="Bypass" origin="647, 365" size="78, 30"/>
     <view class="CView" custom-view-name="GlassOverlay" origin="0, 0" size="760, 430" mouse-enabled="false" transparent="true"/>
+    <view class="CView" custom-view-name="DemoBadge" origin="566, 12" size="68, 26" mouse-enabled="false" transparent="true"/>
   </template>
 
   <control-tags>

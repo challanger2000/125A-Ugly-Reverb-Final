@@ -178,6 +178,7 @@ VSTGUI::CView* Controller::createCustomView(VSTGUI::UTF8StringPtr name,
     if(std::strcmp(name,"Faceplate")==0) return new UglyFaceplate(r);
     if(std::strcmp(name,"WearOverlay")==0) return new UglyTextureOverlay(r,"ugly_wear_overlay.png",1.f);
     if(std::strcmp(name,"GlassOverlay")==0) return new UglyTextureOverlay(r,"ugly_glass_overlay.png",1.f);
+    if(std::strcmp(name,"DemoBadge")==0) return new UglyDemoBadge(r);
     if(std::strcmp(name,"BrandLogo")==0) return new UglyLogo(r);
     if(std::strcmp(name,"GuiZoom")==0) return new UglyZoomControl(r,e,&guiZoomIndex_);
     auto defaultFor=[&](ParamID id)->float {
