@@ -15,3 +15,12 @@ This `Demo` branch implements the current 125A Demo / Licensing Standard.
 - Stable release branches remain unchanged.
 
 Build/QA evidence must come from the Demo-branch workflow before artifacts are treated as publishable.
+
+
+## GUI badge visibility fix
+
+The original Demo badge was drawn inside the Faceplate, while the full-screen GlassOverlay
+was drawn later in the VSTGUI hierarchy. That could obscure the badge in the real editor.
+
+The Demo branch now uses a dedicated `DemoBadge` custom view placed after the GlassOverlay,
+so the badge is always topmost and visible.
